@@ -1,5 +1,5 @@
 import { zValidator } from '@hono/zod-validator';
-import { Either } from 'effect';
+import { Effect, Either } from 'effect';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { db } from '../../db/db';
@@ -44,13 +44,19 @@ users.post('/register', zValidator('json', UserSchema), async (c) => {
     return c.json({ message: 'Invalid input', cause: error.errors });
   }
   const { name, email, password } = data;
-  const either = await createUser({ name, email, password })
-  if (Either.isLeft(either)) {
-    c.status(500);
-    return c.json({ message: 'Failed to create user', cause: either.left.message });
-  }
-  const registeredUser = await saveUserToDB(either.right);
-  return c.json({ message: 'User registered', user: registeredUser });
+  const user = createUser({ name, email, password })
+  return Effect.runPromise(
+    Effect.match(user, {
+      onFailure: (err) => {
+        c.status(500);
+        return c.json({ message: 'Failed to create user', cause: err });
+      },
+      onSuccess: async (user) => {
+        const registeredUser = await saveUserToDB(user);
+        return c.json({ message: 'User registered', user: registeredUser });
+      },
+    })
+  );
 });
 
 // --- 型定義 ---

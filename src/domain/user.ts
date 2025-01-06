@@ -17,26 +17,16 @@ type DomainError = HashError;
 
 export type NotResisterdUser = Omit<User, 'userId' | 'createdAt'>;
 
-type CreateUserEither =
-  | Left<never, NotResisterdUser>
-  | Right<never, NotResisterdUser>
-  | Left<any, never>
-  | Right<any, never>
-
 export const createUser = (input: {
   name: string;
   email: string;
   password: string;
-}): Promise<CreateUserEither> =>
-  Effect.runPromise<NotResisterdUser, DomainError>(
-    Effect.gen(function* () {
-      const passwordHash = yield* hashPassword(input.password);
-      return {
-        name: input.name,
-        email: input.email,
-        passwordHash,
-      } as NotResisterdUser;
-    })
-  )
-    .then(Either.right)
-    .catch(Either.left);
+}): Effect.Effect<NotResisterdUser, DomainError> =>
+  pipe(
+    hashPassword(input.password),
+    Effect.map((passwordHash) => ({
+      name: input.name,
+      email: input.email,
+      passwordHash,
+    } as NotResisterdUser))
+  );
