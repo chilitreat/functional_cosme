@@ -6,7 +6,7 @@ export class HashError {
 }
 
 // パスワードをハッシュ化する処理
-export const hashPassword = (password: string): Effect.Effect<string, DomainError> =>
+export const hashPassword = (password: string): Effect.Effect<string, HashError> =>
   Effect.tryPromise({
     try: () => Bun.password.hash(password),
     catch: () => new HashError('Failed to hash password'),
