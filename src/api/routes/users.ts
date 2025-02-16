@@ -5,7 +5,7 @@ import * as schema from '../../db/schema';
 import { createUser, NotResisterdUser, User } from '../../domain/user';
 import { jwt, sign } from 'hono/jwt';
 import { eq } from 'drizzle-orm';
-import { errorResponses, HttpErrorCodes } from '../common-error';
+import { badRequestError, errorResponses, HttpErrorCodes, internalServerError, unauthorizedError } from '../common-error';
 
 const jwtSecret = process.env.JWT_SECRET || 'secret';
 const jwtAuth = () => (c: Context, next: Next) =>
@@ -118,16 +118,14 @@ const postRegisterRoute = createRoute({
 users.openapi(postRegisterRoute, async (c) => {
   const { success, error, data } = UserSchema.safeParse(await c.req.json());
   if (!success || !data) {
-    c.status(HttpErrorCodes.BAD_REQUEST);
-    return c.json({ message: 'Invalid input', cause: error.errors });
+    return badRequestError(c, error);
   }
   const { name, email, password } = data;
   const user = createUser({ name, email, password });
   return Effect.runPromise(
     Effect.match(user, {
       onFailure: (err) => {
-        c.status(HttpErrorCodes.INTERNAL_SERVER_ERROR);
-        return c.json({ message: 'Failed to create user', cause: err });
+        return internalServerError(c, err);
       },
       onSuccess: async (user) => {
         const registeredUser = await saveUserToDB(user);
@@ -195,13 +193,11 @@ users.openapi(postLoginRoute, async (c) => {
     .limit(1);
 
   if (found.length === 0) {
-    c.status(HttpErrorCodes.UNAUTHORIZED);
-    return c.json({ message: 'Invalid email or password' });
+    return unauthorizedError(c, new Error('Invalid email or password'));
   }
 
   if (!(await Bun.password.verify(password, found[0].passwordHash))) {
-    c.status(HttpErrorCodes.UNAUTHORIZED);
-    return c.json({ message: 'Invalid email or password' });
+    return unauthorizedError(c, new Error('Invalid email or password'));
   }
 
   const payload = {

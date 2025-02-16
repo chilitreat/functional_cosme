@@ -1,4 +1,6 @@
 import { z } from '@hono/zod-openapi';
+import { cause } from 'effect/Effect';
+import { Context } from 'hono';
 
 export const HttpErrorCodes = {
   BAD_REQUEST: 400,
@@ -17,8 +19,34 @@ export const errorResponses = (status?: HttpErrorCodes[]) => ({
   ),
 });
 
+export const badRequestError = (c: Context, e: Error) => {
+  c.status(HttpErrorCodes.BAD_REQUEST);
+  return c.json({ message: e.message, cause: e.cause });
+}
+
+export const unauthorizedError = (c: Context, e: Error) => {
+  c.status(HttpErrorCodes.UNAUTHORIZED);
+  return c.json({ message: e.message, cause: e.cause });
+}
+
+export const forbiddenError = (c: Context, e: Error) => {
+  c.status(HttpErrorCodes.FORBIDDEN);
+  return c.json({ message: e.message, cause: e.cause });
+}
+
+export const notFoundError = (c: Context, e: Error) => {
+  c.status(HttpErrorCodes.NOT_FOUND);
+  return c.json({ message: e.message, cause: e.cause });
+}
+
+export const internalServerError = (c: Context, e: Error) => {
+  c.status(HttpErrorCodes.INTERNAL_SERVER_ERROR);
+  return c.json({ message: e.message, cause: e.cause });
+}
+
 const ErrorSchema = z.object({
   message: z.string(),
+  cause: z.string().optional(),
 });
 
 const defaultErrorResponses: Record<
@@ -102,6 +130,7 @@ const defaultErrorResponses: Record<
         schema: ErrorSchema,
         example: {
           message: 'Internal server error',
+          cause: 'Error: Something went wrong',
         },
       },
     },

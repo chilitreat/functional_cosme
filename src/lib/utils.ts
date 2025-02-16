@@ -1,8 +1,10 @@
 import { Effect } from "effect";
 
-export class HashError {
+export class HashError extends Error{
   readonly _tag = 'HashError';
-  constructor(readonly message: string) {}
+  constructor(readonly message: string) {
+    super(message);
+  }
 }
 
 // パスワードをハッシュ化する処理

@@ -1,5 +1,4 @@
 import { Effect, Either, pipe, Schema } from 'effect';
-import { Left, Right } from 'effect/Either';
 import { HashError, hashPassword } from '../lib/utils';
 
 export type User = {
