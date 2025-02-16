@@ -1,3 +1,12 @@
 {
-  "deno.enable": false
+  "deno.enable": false,
+  "sqltools.useNodeRuntime": true,
+  "sqltools.connections": [
+    {
+      "previewLimit": 50,
+      "driver": "SQLite",
+      "name": "functional_cosme",
+      "database": "${workspaceFolder:functional-cosme}/database/database.sqlite"
+    }
+  ]
 }
