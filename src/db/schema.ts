@@ -15,10 +15,11 @@ export const users = sqliteTable('users', {
 });
 
 export const products = sqliteTable('products', {
-  productId: text('product_id').primaryKey().notNull(), // 商品ID
+  productId: integer('product_id').primaryKey({ autoIncrement: true }).notNull(), // 商品ID
   name: text('name').notNull(), // 商品名
   manufacturer: text('manufacturer').notNull(), // メーカー
   category: text('category').notNull(), // カテゴリ
+  ingredients: text('ingredients').notNull(), // 成分
   createdAt: text('created_at').notNull().default(sql`(CURRENT_TIMESTAMP)`), // 作成日時
 });
 

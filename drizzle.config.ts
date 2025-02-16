@@ -3,8 +3,8 @@ import { defineConfig } from 'drizzle-kit';
 export default defineConfig({
   out: './migrations',
   schema: './src/db/schema.ts', // スキーマファイルのパス
-  driver: 'sqlite',
+  dialect: 'sqlite',
   dbCredentials: {
-    url: './database.sqlite', // SQLiteファイルのパス
+    url: './database/database.sqlite', // SQLiteファイルのパス
   },
 });

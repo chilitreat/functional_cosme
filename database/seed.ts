@@ -3,6 +3,10 @@ import * as schema from '../src/db/schema';
 
 const hash = await Bun.password.hash('password');
 
+
+console.log(`Seeding started...`);
+
+console.log('Inserting users...');
 await db.insert(schema.users).values([
   {
     id: 1,
@@ -23,5 +27,34 @@ await db.insert(schema.users).values([
     passwordHash: hash,
   },
 ]);
+console.log('Inserted users.');
+
+console.log('Inserting products...');
+
+await db.insert(schema.products).values([
+  {
+    id: 1,
+    name: 'Product 1',
+    manufacturer: 'Manufacturer 1',
+    category: 'skin_care',
+    ingredients: 'Ingredient 1,Ingredient 2',
+  },
+  {
+    id: 2,
+    name: 'Product 2',
+    manufacturer: 'Manufacturer 2',
+    category: 'skin_care',
+    ingredients: 'Ingredient 3,Ingredient 4',
+  },
+  {
+    id: 3,
+    name: 'Product 3',
+    manufacturer: 'Manufacturer 3',
+    category: 'skin_care',
+    ingredients: 'Ingredient 5,Ingredient 6',
+  },
+]);
+console.log('Inserted products.');
+
 
 console.log(`Seeding complete.`);
