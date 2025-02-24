@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Context, Effect } from 'effect';
 
 export type DomainError = UndefinedProductCategoryError;
 
@@ -6,7 +6,6 @@ export type DomainError = UndefinedProductCategoryError;
 export type UndefinedProductCategoryError = {
   type: 'UndefinedProductCategoryError';
 };
-
 
 export type Product = {
   productId: productId;
@@ -20,10 +19,23 @@ export type Product = {
 export type UnsavedProduct = Omit<Product, 'productId'>;
 
 export type productId = number;
-type productCategory = 'skin_care' | 'makeup' | 'fragrance' | 'hair_care' | 'body_care';
+type productCategory =
+  | 'skin_care'
+  | 'makeup'
+  | 'fragrance'
+  | 'hair_care'
+  | 'body_care';
 
-export const isValidProductCategory = (category: string): category is productCategory => {
-  return ['skin_care', 'makeup', 'fragrance', 'hair_care', 'body_care'].includes(category);
+export const isValidProductCategory = (
+  category: string
+): category is productCategory => {
+  return [
+    'skin_care',
+    'makeup',
+    'fragrance',
+    'hair_care',
+    'body_care',
+  ].includes(category);
 };
 
 export const createProduct = (input: {
@@ -42,4 +54,13 @@ export const createProduct = (input: {
     ingredients: input.ingredients,
     createdAt: new Date(),
   });
-}
+};
+
+export class ProductRepository extends Context.Tag('ProductRepository')<
+  ProductRepository,
+  {
+    //  findAll: () => Effect.Effect<Product[], DomainError>;
+    //  findById: (productId: productId) => Effect.Effect<Product | undefined, DomainError>;
+    save: (product: UnsavedProduct) => Effect.Effect<Product, DomainError>;
+  }
+>() {}

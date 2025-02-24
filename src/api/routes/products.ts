@@ -1,16 +1,29 @@
 import { z, createRoute, OpenAPIHono } from '@hono/zod-openapi';
 import { jwt } from 'hono/jwt';
 import { eq } from 'drizzle-orm';
-import { db } from '../../db/db';
+import { DatabaseConnectionLive, db } from '../../db/db';
 import * as schema from '../../db/schema';
-import { createProduct, Product } from '../../domain/product'; 
-import { badRequestError, errorResponses, HttpErrorCodes, internalServerError, notFoundError, unauthorizedError } from '../common-error';
+import {
+  createProduct,
+  isValidProductCategory,
+  Product,
+  ProductRepository,
+} from '../../domain/product';
+import {
+  badRequestError,
+  errorResponses,
+  HttpErrorCodes,
+  internalServerError,
+  notFoundError,
+} from '../common-error';
 
 import { Context, Next } from 'hono';
-import { Effect } from 'effect';
+import { Effect, Layer } from 'effect';
+import { ProductRepositoryLive } from '../../repository/ProductRepositoryLive';
 
 const jwtSecret = process.env.JWT_SECRET || 'secret';
-const jwtAuth = () => (c: Context, next: Next) => jwt({ secret: jwtSecret })(c, next);
+const jwtAuth = () => (c: Context, next: Next) =>
+  jwt({ secret: jwtSecret })(c, next);
 
 export const products = new OpenAPIHono();
 
@@ -53,14 +66,19 @@ const getProductsRoute = createRoute({
 
 products.openapi(getProductsRoute, async (c) => {
   const result = await db.select().from(schema.products).execute();
-  const products: Product[] = result.map((p) => ({
-    productId: p.productId,
-    name: p.name,
-    manufacturer: p.manufacturer,
-    category: p.category,
-    ingredients: p.ingredients.split(','),
-    createdAt: new Date(p.createdAt),
-  }));
+  const products: Product[] = result.map((p) => {
+    if (!isValidProductCategory(p.category)) {
+      throw new Error('Invalid product category');
+    }
+    return {
+      productId: p.productId,
+      name: p.name,
+      manufacturer: p.manufacturer,
+      category: p.category,
+      ingredients: p.ingredients.split(','),
+      createdAt: new Date(p.createdAt),
+    };
+  });
   return c.json(products);
 });
 
@@ -107,15 +125,21 @@ products.openapi(getProductByIdRoute, async (c) => {
   if (result.length === 0) {
     return notFoundError(c, new Error('Product not found'));
   }
-  const product: Product = result.map((p) => ({
-    id: p.productId.toString(),
+  if (result.length === 0) {
+    return notFoundError(c, new Error('Product not found'));
+  }
+  const p = result[0];
+  if (!isValidProductCategory(p.category)) {
+    return internalServerError(c, new Error('Invalid product category'));
+  }
+  const product: Product = {
+    productId: p.productId,
     name: p.name,
     manufacturer: p.manufacturer,
     category: p.category,
     ingredients: p.ingredients.split(','),
-    createdAt: p.createdAt,
-  }))[0];
-
+    createdAt: new Date(p.createdAt),
+  };
   return c.json(product);
 });
 
@@ -176,36 +200,82 @@ const postProductRoute = createRoute({
         },
       },
     },
-    ...errorResponses([HttpErrorCodes.BAD_REQUEST, HttpErrorCodes.INTERNAL_SERVER_ERROR]),
+    ...errorResponses([
+      HttpErrorCodes.BAD_REQUEST,
+      HttpErrorCodes.INTERNAL_SERVER_ERROR,
+    ]),
   },
 });
 
 products.openapi(postProductRoute, async (c) => {
-  const { success, error, data } = z.object({
-    name: z.string(),
-    manufacturer: z.string(),
-    category: z.string(),
-    ingredients: z.array(z.string()),
-  }).safeParse(await c.req.json());
+  const { success, error, data } = z
+    .object({
+      name: z.string(),
+      manufacturer: z.string(),
+      category: z.string(),
+      ingredients: z.array(z.string()),
+    })
+    .safeParse(await c.req.json());
   if (!success || !data) {
     return badRequestError(c, error);
   }
   const { name, manufacturer, category, ingredients } = data;
-  const product = createProduct({ name, manufacturer, category: category, ingredients });
-  return Effect.runPromise(
-    Effect.match(product, {
-      onFailure: (err) => {
-        return badRequestError(c, new Error(`Invalid product data: ${err.type}`));
-      },
-      onSuccess: async (product) => {
-        const productDto = { ...product, ingredients: product.ingredients.join(','), createdAt: product.createdAt.toISOString() };
-        const result = await db.insert(schema.products)
-          .values(productDto)
-          .returning({ id: schema.products.productId })
-          .execute();
-        const insertedProductId = result[0].id;
-        return c.json({ message: 'Product registered', product: { id: insertedProductId, ...product } });
-      },
-    })
+
+  const program = createProduct({
+    name,
+    manufacturer,
+    category: category,
+    ingredients,
+  })
+    .pipe(
+      Effect.matchEffect({
+        onFailure: (err) =>
+          Effect.fail(new Error(`Invalid product data: ${err.type}`)),
+        onSuccess: (product) =>
+          Effect.succeed(
+            Effect.flatMap(ProductRepository, (repository) =>
+              repository.save(product)
+            )
+          ),
+      })
+    )
+    .pipe(
+      Effect.matchEffect({
+        onFailure: (err) => {
+          const errorMessage =
+            err instanceof Error ? err.message : 'Unknown error';
+          return Effect.fail(
+            new Error(`Failed to save product: ${errorMessage}`)
+          );
+        },
+        onSuccess: (productEffect) =>
+          Effect.flatMap(productEffect, (p) =>
+            Effect.succeed({
+              message: 'Product registered',
+              product: {
+                id: p.productId,
+                name: p.name,
+                manufacturer: p.manufacturer,
+                category: p.category,
+                ingredients: p.ingredients,
+                createdAt: p.createdAt.toISOString(),
+              },
+            })
+          ),
+      })
+    )
+    .pipe(
+      Effect.catchAll((err) => {
+        return Effect.fail(err);
+      })
+    );
+
+  const response = await Effect.runPromise(
+    Effect.provide(
+      program,
+      // 依存関係が深くなったら、provideがどんどんネストする？
+      Layer.provide(ProductRepositoryLive, DatabaseConnectionLive)
+    )
   );
+  return c.json(response);
 });
