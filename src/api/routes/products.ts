@@ -65,21 +65,30 @@ const getProductsRoute = createRoute({
 });
 
 products.openapi(getProductsRoute, async (c) => {
-  const result = await db.select().from(schema.products).execute();
-  const products: Product[] = result.map((p) => {
-    if (!isValidProductCategory(p.category)) {
-      throw new Error('Invalid product category');
-    }
-    return {
-      productId: p.productId,
-      name: p.name,
-      manufacturer: p.manufacturer,
-      category: p.category,
-      ingredients: p.ingredients.split(','),
-      createdAt: new Date(p.createdAt),
-    };
-  });
-  return c.json(products);
+  const program = Effect.flatMap(ProductRepository, (repository) =>
+    Effect.map(repository.findAll(), (products) => products)
+  )
+    .pipe(
+      Effect.matchEffect({
+        onFailure: (err) => Effect.fail(err),
+        onSuccess: (products) => Effect.succeed(products),
+      })
+    )
+    .pipe(
+      Effect.catchAll((err) => {
+        return Effect.fail(err);
+      })
+    );
+
+  const response = await Effect.runPromise(
+    Effect.provide(
+      program,
+      // 依存関係が深くなったら、provideがどんどんネストする？
+      Layer.provide(ProductRepositoryLive, DatabaseConnectionLive)
+    )
+  );
+
+  return c.json(response);
 });
 
 // 商品詳細取得

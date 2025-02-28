@@ -1,4 +1,5 @@
 import { Context, Effect } from 'effect';
+import { of } from 'effect/Chunk';
 
 export type DomainError = UndefinedProductCategoryError;
 
@@ -16,10 +17,33 @@ export type Product = {
   createdAt: Date;
 };
 
+export const Product = {
+  of: (input: {
+    id: number;
+    name: string;
+    manufacturer: string;
+    category: string;
+    ingredients: string[];
+    createdAt: string;
+  }): Effect.Effect<Product, DomainError> => {
+    if (!isValidProductCategory(input.category)) {
+      return Effect.fail({ type: 'UndefinedProductCategoryError' });
+    }
+    return Effect.succeed({
+      productId: input.id,
+      name: input.name,
+      manufacturer: input.manufacturer,
+      category: input.category,
+      ingredients: input.ingredients,
+      createdAt: new Date(input.createdAt),
+    });
+  },
+};
+
 export type UnsavedProduct = Omit<Product, 'productId'>;
 
 export type productId = number;
-type productCategory =
+export type productCategory =
   | 'skin_care'
   | 'makeup'
   | 'fragrance'
@@ -59,7 +83,7 @@ export const createProduct = (input: {
 export class ProductRepository extends Context.Tag('ProductRepository')<
   ProductRepository,
   {
-    //  findAll: () => Effect.Effect<Product[], DomainError>;
+    findAll: () => Effect.Effect<Product[], DomainError>;
     //  findById: (productId: productId) => Effect.Effect<Product | undefined, DomainError>;
     save: (product: UnsavedProduct) => Effect.Effect<Product, DomainError>;
   }

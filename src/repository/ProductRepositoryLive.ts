@@ -1,12 +1,31 @@
 import { Layer, Effect } from 'effect';
 import { DatabaseConnection } from '../db/db';
-import { ProductRepository } from '../domain/product';
+import { Product, ProductRepository } from '../domain/product';
 import * as schema from '../db/schema';
 
 export const ProductRepositoryLive = Layer.effect(
   ProductRepository,
   Effect.flatMap(DatabaseConnection, ({ db }) =>
     Effect.succeed({
+      findAll: () =>
+        Effect.promise(async () => {
+          const products = await db.select().from(schema.products).execute();
+          const productEffects = products.map((product) =>
+            Product.of({
+              ...product,
+              ingredients: product.ingredients.split(','),
+              id: product.productId,
+            })
+          );
+
+          const validatedProducts = await Promise.all(
+            productEffects.map((productEffect) =>
+              Effect.runPromise(productEffect)
+            )
+          );
+
+          return validatedProducts;
+        }),
       save: (product) =>
         Effect.promise(async () => {
           const productDto = {
