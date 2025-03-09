@@ -1,7 +1,12 @@
 import { Layer, Effect } from 'effect';
 import { DatabaseConnection } from '../db/db';
-import { Product, ProductRepository } from '../domain/product';
+import {
+  DomainError,
+  Product,
+  ProductRepository,
+} from '../domain/product';
 import * as schema from '../db/schema';
+import { sql } from 'drizzle-orm';
 
 export const ProductRepositoryLive = Layer.effect(
   ProductRepository,
@@ -25,6 +30,28 @@ export const ProductRepositoryLive = Layer.effect(
           );
 
           return validatedProducts;
+        }),
+      findById: (
+        productId: number
+      ): Effect.Effect<Product | undefined, DomainError> =>
+        Effect.promise(async () => {
+          const [product] = await db
+            .select()
+            .from(schema.products)
+            .where(sql`${schema.products.productId} = ${productId}`)
+            .execute();
+
+          if (!product) {
+            return;
+          }
+
+          return Effect.runPromise(
+            Product.of({
+              ...product,
+              ingredients: product.ingredients.split(','),
+              id: product.productId,
+            })
+          );
         }),
       save: (product) =>
         Effect.promise(async () => {

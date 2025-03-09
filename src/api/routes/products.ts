@@ -1,12 +1,8 @@
 import { z, createRoute, OpenAPIHono } from '@hono/zod-openapi';
 import { jwt } from 'hono/jwt';
-import { eq } from 'drizzle-orm';
 import { DatabaseConnectionLive, db } from '../../db/db';
-import * as schema from '../../db/schema';
 import {
   createProduct,
-  isValidProductCategory,
-  Product,
   ProductRepository,
 } from '../../domain/product';
 import {
@@ -14,6 +10,7 @@ import {
   errorResponses,
   HttpErrorCodes,
   internalServerError,
+  NotFound,
   notFoundError,
 } from '../common-error';
 
@@ -126,30 +123,38 @@ const getProductByIdRoute = createRoute({
 
 products.openapi(getProductByIdRoute, async (c) => {
   const { id } = c.req.param();
-  const result = await db
-    .select()
-    .from(schema.products)
-    .where(eq(schema.products.productId, Number(id)))
-    .execute();
-  if (result.length === 0) {
-    return notFoundError(c, new Error('Product not found'));
-  }
-  if (result.length === 0) {
-    return notFoundError(c, new Error('Product not found'));
-  }
-  const p = result[0];
-  if (!isValidProductCategory(p.category)) {
-    return internalServerError(c, new Error('Invalid product category'));
-  }
-  const product: Product = {
-    productId: p.productId,
-    name: p.name,
-    manufacturer: p.manufacturer,
-    category: p.category,
-    ingredients: p.ingredients.split(','),
-    createdAt: new Date(p.createdAt),
-  };
-  return c.json(product);
+  const program = Effect.flatMap(ProductRepository, (repository) =>
+    Effect.map(repository.findById(Number(id)), (product) => product)
+  )
+    .pipe(
+      Effect.matchEffect({
+        onFailure: (err) => Effect.fail(err),
+        onSuccess: (product) => {
+          if (!product) {
+            return Effect.fail(new NotFound());
+          }
+          return Effect.succeed(product);
+        },
+      })
+    )
+    .pipe(
+      Effect.catchTags({
+        NotFound: (err) => Effect.succeed(notFoundError(c, err)),
+      })
+    )
+    .pipe(
+      Effect.catchAll((err) => {
+        return Effect.succeed(internalServerError(c, err))
+      })
+    );
+
+  const response = await Effect.runPromise(
+    Effect.provide(
+      program,
+      Layer.provide(ProductRepositoryLive, DatabaseConnectionLive)
+    )
+  );
+  return c.json(response);
 });
 
 // 商品登録(管理者専用)

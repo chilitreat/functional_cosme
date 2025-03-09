@@ -4,9 +4,13 @@ import { of } from 'effect/Chunk';
 export type DomainError = UndefinedProductCategoryError;
 
 // productCategory未定義のドメインエラー型
-export type UndefinedProductCategoryError = {
-  type: 'UndefinedProductCategoryError';
-};
+export class UndefinedProductCategoryError extends Error {
+  type = 'UndefinedProductCategoryError';
+  constructor(message: string) {
+    super(message);
+    this.name = 'UndefinedProductCategoryError';
+  }
+}
 
 export type Product = {
   productId: productId;
@@ -27,7 +31,7 @@ export const Product = {
     createdAt: string;
   }): Effect.Effect<Product, DomainError> => {
     if (!isValidProductCategory(input.category)) {
-      return Effect.fail({ type: 'UndefinedProductCategoryError' });
+      return Effect.fail(new UndefinedProductCategoryError('Undefined product category'));
     }
     return Effect.succeed({
       productId: input.id,
@@ -69,7 +73,7 @@ export const createProduct = (input: {
   ingredients: string[];
 }): Effect.Effect<UnsavedProduct, DomainError> => {
   if (!isValidProductCategory(input.category)) {
-    return Effect.fail({ type: 'UndefinedProductCategoryError' });
+    return Effect.fail(new UndefinedProductCategoryError('Undefined product category'));
   }
   return Effect.succeed({
     name: input.name,
@@ -84,7 +88,7 @@ export class ProductRepository extends Context.Tag('ProductRepository')<
   ProductRepository,
   {
     findAll: () => Effect.Effect<Product[], DomainError>;
-    //  findById: (productId: productId) => Effect.Effect<Product | undefined, DomainError>;
+    findById: (productId: productId) => Effect.Effect<Product | undefined, DomainError>;
     save: (product: UnsavedProduct) => Effect.Effect<Product, DomainError>;
   }
 >() {}
