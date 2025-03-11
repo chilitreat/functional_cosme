@@ -12,7 +12,7 @@ import {
 } from '../common-error';
 
 import { Context, Next } from 'hono';
-import { Effect, Either, Layer } from 'effect';
+import { Effect, Either, Layer, pipe } from 'effect';
 import { ProductRepositoryLive } from '../../repository/ProductRepositoryLive';
 
 const jwtSecret = process.env.JWT_SECRET || 'secret';
@@ -59,8 +59,9 @@ const getProductsRoute = createRoute({
 });
 
 products.openapi(getProductsRoute, async (c) => {
-  const program = Effect.flatMap(ProductRepository, (repository) =>
-    Effect.map(repository.findAll(), (products) => products)
+  const program = pipe(
+    ProductRepository,
+    Effect.flatMap((repository) => repository.findAll())
   )
     .pipe(
       Effect.matchEffect({
@@ -133,30 +134,33 @@ const getProductByIdRoute = createRoute({
 
 products.openapi(getProductByIdRoute, async (c) => {
   const { id } = c.req.param();
-  const program = Effect.flatMap(ProductRepository, (repository) =>
-    Effect.map(repository.findById(Number(id)), (product) => product)
-  ).pipe(
-    Effect.matchEffect({
-      onFailure: (err) => Effect.fail(err),
-      onSuccess: (product) => {
-        if (!product) {
-          return Effect.fail(new NotFound('Product not found'));
-        }
-        return Effect.succeed({
-          id: product.productId,
-          name: product.name,
-          manufacturer: product.manufacturer,
-          category: product.category,
-          ingredients: product.ingredients,
-          createdAt: product.createdAt.toISOString(),
-        });
-      },
-    })
-  ).pipe(
-    Effect.catchAll((err) => {
-      return Effect.fail(err);
-    })
-  );
+  const program = pipe(
+    ProductRepository,
+    Effect.flatMap((repository) => repository.findById(Number(id)))
+  )
+    .pipe(
+      Effect.matchEffect({
+        onFailure: (err) => Effect.fail(err),
+        onSuccess: (product) => {
+          if (!product) {
+            return Effect.fail(new NotFound('Product not found'));
+          }
+          return Effect.succeed({
+            id: product.productId,
+            name: product.name,
+            manufacturer: product.manufacturer,
+            category: product.category,
+            ingredients: product.ingredients,
+            createdAt: product.createdAt.toISOString(),
+          });
+        },
+      })
+    )
+    .pipe(
+      Effect.catchAll((err) => {
+        return Effect.fail(err);
+      })
+    );
 
   const failureOrSuccess = await Effect.runPromise(
     Effect.provide(
@@ -290,7 +294,8 @@ products.openapi(postProductRoute, async (c) => {
             })
           ),
       })
-    ).pipe(
+    )
+    .pipe(
       Effect.catchAll((err) => {
         return Effect.fail(err);
       })
