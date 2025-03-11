@@ -1,10 +1,7 @@
 import { z, createRoute, OpenAPIHono } from '@hono/zod-openapi';
 import { jwt } from 'hono/jwt';
 import { DatabaseConnectionLive, db } from '../../db/db';
-import {
-  createProduct,
-  ProductRepository,
-} from '../../domain/product';
+import { createProduct, ProductRepository } from '../../domain/product';
 import {
   badRequestError,
   errorResponses,
@@ -15,7 +12,7 @@ import {
 } from '../common-error';
 
 import { Context, Next } from 'hono';
-import { Effect, Layer } from 'effect';
+import { Effect, Either, Layer } from 'effect';
 import { ProductRepositoryLive } from '../../repository/ProductRepositoryLive';
 
 const jwtSecret = process.env.JWT_SECRET || 'secret';
@@ -36,7 +33,7 @@ const getProductsRoute = createRoute({
         'application/json': {
           schema: z.array(
             z.object({
-              id: z.string(),
+              id: z.number().int().positive(),
               name: z.string(),
               manufacturer: z.string(),
               category: z.string(),
@@ -46,7 +43,7 @@ const getProductsRoute = createRoute({
           ),
           example: [
             {
-              id: '1',
+              id: 1,
               name: 'スーパーすべすべクリーム',
               manufacturer: 'すべっすべ株式会社',
               category: 'skin_care',
@@ -68,7 +65,17 @@ products.openapi(getProductsRoute, async (c) => {
     .pipe(
       Effect.matchEffect({
         onFailure: (err) => Effect.fail(err),
-        onSuccess: (products) => Effect.succeed(products),
+        onSuccess: (products) =>
+          Effect.succeed(
+            products.map((p) => ({
+              id: p.productId,
+              name: p.name,
+              manufacturer: p.manufacturer,
+              category: p.category,
+              ingredients: p.ingredients,
+              createdAt: p.createdAt.toISOString(),
+            }))
+          ),
       })
     )
     .pipe(
@@ -99,7 +106,7 @@ const getProductByIdRoute = createRoute({
       content: {
         'application/json': {
           schema: z.object({
-            id: z.string(),
+            id: z.number().int().positive(),
             name: z.string(),
             manufacturer: z.string(),
             category: z.string(),
@@ -107,7 +114,7 @@ const getProductByIdRoute = createRoute({
             createdAt: z.string(),
           }),
           example: {
-            id: '1',
+            id: 1,
             name: 'スーパーすべすべクリーム',
             manufacturer: 'すべっすべ株式会社',
             category: 'skin_care',
@@ -117,7 +124,10 @@ const getProductByIdRoute = createRoute({
         },
       },
     },
-    ...errorResponses([HttpErrorCodes.INTERNAL_SERVER_ERROR]),
+    ...errorResponses([
+      HttpErrorCodes.NOT_FOUND,
+      HttpErrorCodes.INTERNAL_SERVER_ERROR,
+    ]),
   },
 });
 
@@ -125,36 +135,46 @@ products.openapi(getProductByIdRoute, async (c) => {
   const { id } = c.req.param();
   const program = Effect.flatMap(ProductRepository, (repository) =>
     Effect.map(repository.findById(Number(id)), (product) => product)
-  )
-    .pipe(
-      Effect.matchEffect({
-        onFailure: (err) => Effect.fail(err),
-        onSuccess: (product) => {
-          if (!product) {
-            return Effect.fail(new NotFound());
-          }
-          return Effect.succeed(product);
-        },
-      })
-    )
-    .pipe(
-      Effect.catchTags({
-        NotFound: (err) => Effect.succeed(notFoundError(c, err)),
-      })
-    )
-    .pipe(
-      Effect.catchAll((err) => {
-        return Effect.succeed(internalServerError(c, err))
-      })
-    );
+  ).pipe(
+    Effect.matchEffect({
+      onFailure: (err) => Effect.fail(err),
+      onSuccess: (product) => {
+        if (!product) {
+          return Effect.fail(new NotFound('Product not found'));
+        }
+        return Effect.succeed({
+          id: product.productId,
+          name: product.name,
+          manufacturer: product.manufacturer,
+          category: product.category,
+          ingredients: product.ingredients,
+          createdAt: product.createdAt.toISOString(),
+        });
+      },
+    })
+  ).pipe(
+    Effect.catchAll((err) => {
+      return Effect.fail(err);
+    })
+  );
 
-  const response = await Effect.runPromise(
+  const failureOrSuccess = await Effect.runPromise(
     Effect.provide(
-      program,
+      Effect.either(program),
       Layer.provide(ProductRepositoryLive, DatabaseConnectionLive)
     )
   );
-  return c.json(response);
+
+  if (Either.isLeft(failureOrSuccess)) {
+    const err = failureOrSuccess.left;
+    if (err instanceof NotFound) {
+      return notFoundError(c, err);
+    }
+    return internalServerError(c, err);
+  }
+
+  const product = failureOrSuccess.right;
+  return c.json(product);
 });
 
 // 商品登録(管理者専用)
@@ -203,7 +223,7 @@ const postProductRoute = createRoute({
           example: {
             message: 'Product registered',
             product: {
-              id: '1',
+              id: 1,
               name: 'スーパーすべすべクリーム',
               manufacturer: 'すべっすべ株式会社',
               category: 'skin_care',
@@ -243,8 +263,7 @@ products.openapi(postProductRoute, async (c) => {
   })
     .pipe(
       Effect.matchEffect({
-        onFailure: (err) =>
-          Effect.fail(new Error(`Invalid product data: ${err.type}`)),
+        onFailure: (err) => Effect.fail(err),
         onSuccess: (product) =>
           Effect.succeed(
             Effect.flatMap(ProductRepository, (repository) =>
@@ -255,13 +274,7 @@ products.openapi(postProductRoute, async (c) => {
     )
     .pipe(
       Effect.matchEffect({
-        onFailure: (err) => {
-          const errorMessage =
-            err instanceof Error ? err.message : 'Unknown error';
-          return Effect.fail(
-            new Error(`Failed to save product: ${errorMessage}`)
-          );
-        },
+        onFailure: (err) => Effect.fail(err),
         onSuccess: (productEffect) =>
           Effect.flatMap(productEffect, (p) =>
             Effect.succeed({
@@ -277,19 +290,37 @@ products.openapi(postProductRoute, async (c) => {
             })
           ),
       })
-    )
-    .pipe(
+    ).pipe(
       Effect.catchAll((err) => {
         return Effect.fail(err);
       })
     );
 
-  const response = await Effect.runPromise(
+  const failureOrSuccess = await Effect.runPromise(
     Effect.provide(
-      program,
-      // 依存関係が深くなったら、provideがどんどんネストする？
+      Effect.either(program),
       Layer.provide(ProductRepositoryLive, DatabaseConnectionLive)
     )
   );
-  return c.json(response);
+
+  if (Either.isLeft(failureOrSuccess)) {
+    const err = failureOrSuccess.left;
+    return internalServerError(c, err);
+  }
+
+  const response = failureOrSuccess.right;
+  return c.json(
+    {
+      message: response.message,
+      product: {
+        id: response.product.id,
+        name: response.product.name,
+        manufacturer: response.product.manufacturer,
+        category: response.product.category,
+        ingredients: response.product.ingredients,
+        createdAt: response.product.createdAt,
+      },
+    },
+    200
+  );
 });

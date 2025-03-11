@@ -12,44 +12,83 @@ export const HttpErrorCodes = {
 
 type HttpErrorCodes = (typeof HttpErrorCodes)[keyof typeof HttpErrorCodes];
 
-export class Unauthorized extends Data.TaggedError('Unauthorized') {}
-export class Forbidden extends Data.TaggedError('Forbidden') {}
-export class NotFound extends Data.TaggedError('NotFound') {}
-export class BadRequest extends Data.TaggedError('BadRequest') {}
+export class Unauthorized extends Data.TaggedError('Unauthorized') {
+  constructor(public readonly message: string) {
+    super();
+  }
+}
+export class Forbidden extends Data.TaggedError('Forbidden') {
+  constructor(public readonly message: string) {
+    super();
+  }
+}
+export class NotFound extends Data.TaggedError('NotFound') {
+  constructor(public readonly message: string) {
+    super();
+  }
+}
+export class BadRequest extends Data.TaggedError('BadRequest') {
+  constructor(public readonly message: string) {
+    super();
+  }
+}
 export class InternalServerError extends Data.TaggedError(
   'InternalServerError'
-) {}
+) {
+  constructor(public readonly message: string = 'Internal Server Error') {
+    super();
+  }
+}
 
-export const errorResponses = (status?: HttpErrorCodes[]) => ({
-  ...status?.reduce(
+type ErrorResponse = {
+  description: string;
+  content: any;
+};
+
+type ErrorResponses<T extends HttpErrorCodes[]> = {
+  [K in T[number]]: ErrorResponse;
+};
+
+export const errorResponses = <T extends HttpErrorCodes[]>(status: T = [] as unknown as T): ErrorResponses<T> => ({
+  ...status.reduce(
     (acc, s) => ({ ...acc, [s]: defaultErrorResponses[s] }),
-    {}
+    {} as ErrorResponses<T>
   ),
 });
 
 export const badRequestError = (c: Context, e: Error) => {
-  c.status(HttpErrorCodes.BAD_REQUEST);
-  return c.json({ message: e.message, cause: e.cause });
+  return c.json(
+    { message: e.message, cause: e.cause },
+    HttpErrorCodes.BAD_REQUEST
+  );
 };
 
 export const unauthorizedError = (c: Context, e: Error) => {
-  c.status(HttpErrorCodes.UNAUTHORIZED);
-  return c.json({ message: e.message, cause: e.cause });
+  return c.json(
+    { message: e.message, cause: e.cause },
+    HttpErrorCodes.UNAUTHORIZED
+  );
 };
 
 export const forbiddenError = (c: Context, e: Error) => {
-  c.status(HttpErrorCodes.FORBIDDEN);
-  return c.json({ message: e.message, cause: e.cause });
+  return c.json(
+    { message: e.message, cause: e.cause },
+    HttpErrorCodes.FORBIDDEN
+  );
 };
 
 export const notFoundError = (c: Context, e: Error) => {
-  c.status(HttpErrorCodes.NOT_FOUND);
-  return c.json({ message: e.message, cause: e.cause });
+  return c.json(
+    { message: e.message, cause: e.cause },
+    HttpErrorCodes.NOT_FOUND
+  );
 };
 
 export const internalServerError = (c: Context, e: Error) => {
-  c.status(HttpErrorCodes.INTERNAL_SERVER_ERROR);
-  return c.json({ message: e.message, cause: e.cause });
+  return c.json(
+    { message: e.message, cause: e.cause },
+    HttpErrorCodes.INTERNAL_SERVER_ERROR
+  );
 };
 
 const ErrorSchema = z.object({
