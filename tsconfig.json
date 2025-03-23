@@ -4,6 +4,7 @@
     "moduleResolution": "node",
     "strict": true,
     "jsx": "react-jsx",
-    "jsxImportSource": "hono/jsx"
+    "jsxImportSource": "hono/jsx",
+    "types": ["vitest/globals"]
   }
 }
