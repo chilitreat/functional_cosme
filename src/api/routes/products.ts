@@ -1,7 +1,5 @@
 import { z, createRoute, OpenAPIHono } from '@hono/zod-openapi';
 import { jwt } from 'hono/jwt';
-import { DatabaseConnectionLive, db } from '../../db/db';
-import { createProduct, ProductRepository } from '../../domain/product';
 import {
   badRequestError,
   errorResponses,
@@ -12,8 +10,6 @@ import {
 } from '../common-error';
 
 import { Context, Next } from 'hono';
-import { Effect, Either, Layer, pipe } from 'effect';
-import { ProductRepositoryLive } from '../../repository/ProductRepositoryLive';
 import { findAll, findById, save } from '../../usecase/product';
 
 const jwtSecret = process.env.JWT_SECRET || 'secret';
@@ -60,15 +56,21 @@ const getProductsRoute = createRoute({
 });
 
 products.openapi(getProductsRoute, async (c) => {
-  const response = await Effect.runPromise(
-    Effect.provide(
-      findAll,
-      // 依存関係が深くなったら、provideがどんどんネストする？
-      Layer.provide(ProductRepositoryLive, DatabaseConnectionLive)
-    )
-  );
+  const response = await findAll();
+  if (response.isErr()) {
+    return internalServerError(c, response.error);
+  }
 
-  return c.json(response);
+  const products = response.value.map((product) => ({
+    id: product.productId,
+    name: product.name,
+    manufacturer: product.manufacturer,
+    category: product.category,
+    ingredients: product.ingredients,
+    createdAt: product.createdAt,
+  }));
+
+  return c.json(products);
 });
 
 // 商品詳細取得
@@ -109,23 +111,23 @@ const getProductByIdRoute = createRoute({
 
 products.openapi(getProductByIdRoute, async (c) => {
   const { id } = c.req.param();
-  const failureOrSuccess = await Effect.runPromise(
-    Effect.provide(
-      Effect.either(findById(id)),
-      Layer.provide(ProductRepositoryLive, DatabaseConnectionLive)
-    )
-  );
-
-  if (Either.isLeft(failureOrSuccess)) {
-    const err = failureOrSuccess.left;
-    if (err instanceof NotFound) {
-      return notFoundError(c, err);
+  const result = await findById(Number(id));
+  if (result.isErr()) {
+    if (result.error instanceof NotFound) {
+      return notFoundError(c, result.error);
     }
-    return internalServerError(c, err);
+    return internalServerError(c, result.error);
   }
 
-  const product = failureOrSuccess.right;
-  return c.json(product);
+  const product = result.value;
+  return c.json({
+    id: product.productId,
+    name: product.name,
+    manufacturer: product.manufacturer,
+    category: product.category,
+    ingredients: product.ingredients,
+    createdAt: product.createdAt.toISOString(),
+  });
 });
 
 // 商品登録(管理者専用)
@@ -205,29 +207,22 @@ products.openapi(postProductRoute, async (c) => {
     return badRequestError(c, error);
   }
 
-  const failureOrSuccess = await Effect.runPromise(
-    Effect.provide(
-      Effect.either(save(data)),
-      Layer.provide(ProductRepositoryLive, DatabaseConnectionLive)
-    )
-  );
-
-  if (Either.isLeft(failureOrSuccess)) {
-    const err = failureOrSuccess.left;
-    return internalServerError(c, err);
+  const result = await save(data);
+  if (result.isErr()) {
+    return internalServerError(c, result.error);
   }
 
-  const response = failureOrSuccess.right;
+  const product = result.value;
   return c.json(
     {
-      message: response.message,
+      message: "Product registered",
       product: {
-        id: response.product.id,
-        name: response.product.name,
-        manufacturer: response.product.manufacturer,
-        category: response.product.category,
-        ingredients: response.product.ingredients,
-        createdAt: response.product.createdAt,
+        id: product.productId,
+        name: product.name,
+        manufacturer: product.manufacturer,
+        category: product.category,
+        ingredients: product.ingredients,
+        createdAt: product.createdAt,
       },
     },
     200
