@@ -1,13 +1,12 @@
-import { db } from '../src/db/db';
+import { databaseConnection } from '../src/db/db';
 import * as schema from '../src/db/schema';
 
 const hash = await Bun.password.hash('password');
 
-
 console.log(`Seeding started...`);
 
 console.log('Inserting users...');
-await db.insert(schema.users).values([
+await databaseConnection.insert(schema.users).values([
   {
     id: 1,
     name: 'Alice',
@@ -31,7 +30,7 @@ console.log('Inserted users.');
 
 console.log('Inserting products...');
 
-await db.insert(schema.products).values([
+await databaseConnection.insert(schema.products).values([
   {
     id: 1,
     name: 'Product 1',

@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { z, createRoute, OpenAPIHono } from '@hono/zod-openapi';
-import { db } from '../../db/db';
+import { databaseConnection } from '../../db/db';
 import * as schema from '../../db/schema';
 import { createUser, NotResisterdUser, User } from '../../domain/user';
 import { jwt, sign } from 'hono/jwt';
@@ -47,7 +47,7 @@ const getUsersRoute = createRoute({
 });
 
 users.openapi(getUsersRoute, async (c) => {
-  const users = await db.select().from(schema.users).execute();
+  const users = await databaseConnection.select().from(schema.users).execute();
   return c.json({ users });
 });
 // --- 型定義 ---
@@ -60,7 +60,7 @@ const UserSchema = z.object({
 type UserInput = z.infer<typeof UserSchema>;
 
 const saveUserToDB = async (user: NotResisterdUser) =>
-  db
+  databaseConnection
     .insert(schema.users)
     .values({
       name: user.name,
@@ -186,7 +186,7 @@ const postLoginRoute = createRoute({
 
 users.openapi(postLoginRoute, async (c) => {
   const { email, password } = c.req.valid('json');
-  const found = await db
+  const found = await databaseConnection
     .select({ passwordHash: schema.users.passwordHash })
     .from(schema.users)
     .where(eq(schema.users.email, email))
