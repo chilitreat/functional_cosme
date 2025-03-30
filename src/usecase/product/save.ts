@@ -3,7 +3,7 @@ import {
   UndefinedProductCategoryError,
 } from '../../domain/product';
 import { depend } from 'velona';
-import { productRepository } from '../../repository/ProductRepositoryLive';
+import { productRepository } from '../../repository/ProductRepository';
 import { ok } from 'neverthrow';
 
 interface ProductDTO {
