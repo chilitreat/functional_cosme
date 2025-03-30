@@ -26,19 +26,19 @@ const UserId = {
 };
 
 export const User = {
-  create: (input: {
+  create: async (input: {
     name: string;
     email: string;
     password: string;
-  }): Result<NotResisterdUser, DomainError> => {
-    const passwordHash = hashPassword(input.password);
-    if (passwordHash.isErr()) {
-      return err(passwordHash.error);
+  }): Promise<Result<NotResisterdUser, DomainError>> => {
+    const hash = await hashPassword(input.password);
+    if (hash.isErr()) {
+      return err(hash.error);
     }
     return ok({
       name: input.name,
       email: input.email,
-      passwordHash: passwordHash.value,
+      passwordHash: hash.value,
     });
   },
 };

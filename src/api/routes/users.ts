@@ -121,7 +121,7 @@ users.openapi(postRegisterRoute, async (c) => {
     return badRequestError(c, error);
   }
   const { name, email, password } = data;
-  const user = User.create({ name, email, password });
+  const user = await User.create({ name, email, password });
 
   if (user.isErr()) {
     return internalServerError(c, user.error);
