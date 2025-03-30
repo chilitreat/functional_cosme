@@ -1,33 +1,44 @@
-import { HashError, hashPassword } from '../lib/utils';
+import { z } from 'zod';
 import { Result, err, ok } from 'neverthrow';
+import { HashError, hashPassword } from '../lib/utils';
 
-export type User = {
-  userId: UserId;
-  name: string;
-  email: string;
-  passwordHash: string;
-  createdAt: Date;
-};
-export const UserId = Schema.Number.pipe(Schema.brand('userId'));
-export type UserId = typeof UserId;
+const UserIdBrand = Symbol('UserIdBrand');
+const UserIdSchema = z.number().int().positive().brand(UserIdBrand);
+export type UserId = z.infer<typeof UserIdSchema>;
+
+const UserSchema = z.object({
+  userId: UserIdSchema,
+  name: z.string(),
+  email: z.string().email(),
+  passwordHash: z.string(),
+  createdAt: z.date(),
+});
+
+export type User = z.infer<typeof UserSchema>;
 
 // ドメインエラーの型
 type DomainError = HashError;
 
 export type NotResisterdUser = Omit<User, 'userId' | 'createdAt'>;
 
-export const createUser = (input: {
-  name: string;
-  email: string;
-  password: string;
-}): Result<NotResisterdUser, DomainError> => {
-  const passwordHash = hashPassword(input.password);
-  if (passwordHash.isErr()) {
-    return err(passwordHash.error);
-  }
-  return ok({
-    name: input.name,
-    email: input.email,
-    passwordHash: passwordHash.value,
-  });
+const UserId = {
+  of: (id: number): UserId => UserIdSchema.parse(id),
+};
+
+export const User = {
+  create: (input: {
+    name: string;
+    email: string;
+    password: string;
+  }): Result<NotResisterdUser, DomainError> => {
+    const passwordHash = hashPassword(input.password);
+    if (passwordHash.isErr()) {
+      return err(passwordHash.error);
+    }
+    return ok({
+      name: input.name,
+      email: input.email,
+      passwordHash: passwordHash.value,
+    });
+  },
 };

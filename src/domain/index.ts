@@ -1,3 +1,8 @@
-export { User, UserId as userId } from './user';
-export { Product, productId } from './product';
+export { User, UserId } from './user';
+export {
+  Product,
+  ProductId,
+  UnsavedProduct,
+  ProductRepository,
+} from './product';
 export { Review, reviewId } from './review';

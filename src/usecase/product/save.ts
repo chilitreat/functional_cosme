@@ -1,5 +1,5 @@
 import {
-  createProduct,
+  Product,
   UndefinedProductCategoryError,
 } from '../../domain/product';
 import { depend } from 'velona';
@@ -16,7 +16,7 @@ interface ProductDTO {
 export const save = depend(
   { repository: productRepository },
   ({ repository }, product: ProductDTO) =>
-    createProduct(product)
+    Product.create(product)
       .asyncAndThen((product) => repository.save(product))
       .andThen((product) => ok(product))
       .mapErr((error) => {

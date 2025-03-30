@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { DatabaseConnectionError } from '../db/db';
 import { Result, ok, err, ResultAsync } from 'neverthrow';
 
@@ -12,36 +13,44 @@ export class UndefinedProductCategoryError extends Error {
   }
 }
 
-export type Product = {
-  productId: productId;
-  name: string;
-  manufacturer: string;
-  category: productCategory;
-  ingredients: string[];
-  createdAt: Date;
+const productCategorySchema = z.enum([
+  'skin_care',
+  'makeup',
+  'fragrance',
+  'hair_care',
+  'body_care',
+]);
+
+export type productCategory = z.infer<typeof productCategorySchema>;
+
+const isValidProductCategory = (
+  category: string
+): category is productCategory => {
+  return productCategorySchema.safeParse(category).success;
+};
+
+const ProductIdBrand = Symbol('ProductIdBrand');
+const ProductIdSchema = z.number().int().positive().brand(ProductIdBrand);
+export type ProductId = z.infer<typeof ProductIdSchema>;
+
+const ProductSchema = z.object({
+  productId: ProductIdSchema,
+  name: z.string(),
+  manufacturer: z.string(),
+  category: productCategorySchema,
+  ingredients: z.array(z.string()),
+  createdAt: z.date(),
+});
+
+export type Product = z.infer<typeof ProductSchema>;
+
+export type UnsavedProduct = Omit<Product, 'productId'>;
+
+export const ProductId = {
+  of: (id: number): ProductId => ProductIdSchema.parse(id),
 };
 
 export const Product = {
-  // of: (input: {
-  //   id: number;
-  //   name: string;
-  //   manufacturer: string;
-  //   category: string;
-  //   ingredients: string[];
-  //   createdAt: string;
-  // }): Effect.Effect<Product, DomainError> => {
-  //   if (!isValidProductCategory(input.category)) {
-  //     return Effect.fail(new UndefinedProductCategoryError('Undefined product category'));
-  //   }
-  //   return Effect.succeed({
-  //     productId: input.id,
-  //     name: input.name,
-  //     manufacturer: input.manufacturer,
-  //     category: input.category,
-  //     ingredients: input.ingredients,
-  //     createdAt: new Date(input.createdAt),
-  //   });
-  // },
   of: (input: {
     id: number;
     name: string;
@@ -55,89 +64,44 @@ export const Product = {
         new UndefinedProductCategoryError('Undefined product category')
       );
     }
+    return ok(
+      ProductSchema.parse({
+        productId: ProductId.of(input.id),
+        name: input.name,
+        manufacturer: input.manufacturer,
+        category: input.category,
+        ingredients: input.ingredients,
+        createdAt: new Date(input.createdAt),
+      })
+    );
+  },
+  create: (input: {
+    name: string;
+    manufacturer: string;
+    category: string;
+    ingredients: string[];
+  }): Result<UnsavedProduct, UndefinedProductCategoryError> => {
+    if (!isValidProductCategory(input.category)) {
+      return err(new UndefinedProductCategoryError('Undefined product category'));
+    }
     return ok({
-      productId: input.id,
       name: input.name,
       manufacturer: input.manufacturer,
       category: input.category,
       ingredients: input.ingredients,
-      createdAt: new Date(input.createdAt),
+      createdAt: new Date(),
     });
-  },
-};
-
-export type UnsavedProduct = Omit<Product, 'productId'>;
-
-export type productId = number;
-export type productCategory =
-  | 'skin_care'
-  | 'makeup'
-  | 'fragrance'
-  | 'hair_care'
-  | 'body_care';
-
-export const isValidProductCategory = (
-  category: string
-): category is productCategory => {
-  return [
-    'skin_care',
-    'makeup',
-    'fragrance',
-    'hair_care',
-    'body_care',
-  ].includes(category);
-};
-
-// export const createProduct = (input: {
-//   name: string;
-//   manufacturer: string;
-//   category: string;
-//   ingredients: string[];
-// }): Effect.Effect<UnsavedProduct, DomainError> => {
-//   if (!isValidProductCategory(input.category)) {
-//     return Effect.fail(
-//       new UndefinedProductCategoryError('Undefined product category')
-//     );
-//   }
-//   return Effect.succeed({
-//     name: input.name,
-//     manufacturer: input.manufacturer,
-//     category: input.category,
-//     ingredients: input.ingredients,
-//     createdAt: new Date(),
-//   });
-// };
-export const createProduct = (input: {
-  name: string;
-  manufacturer: string;
-  category: string;
-  ingredients: string[];
-}): Result<UnsavedProduct, UndefinedProductCategoryError> => {
-  if (!isValidProductCategory(input.category)) {
-    return err(new UndefinedProductCategoryError('Undefined product category'));
   }
-  return ok({
-    name: input.name,
-    manufacturer: input.manufacturer,
-    category: input.category,
-    ingredients: input.ingredients,
-    createdAt: new Date(),
-  });
 };
 
-// export class ProductRepository extends Context.Tag('ProductRepository')<
-//   ProductRepository,
-//   {
-//     findAll: () => Effect.Effect<Product[], DomainError>;
-//     findById: (productId: productId) => Effect.Effect<Product | undefined, DomainError>;
-//     save: (product: UnsavedProduct) => Effect.Effect<Product, DomainError>;
-//   }
-// >() {}
+export const ProductCategory = {
+  isValid: isValidProductCategory,
+};
 
 export interface ProductRepository {
   findAll: () => ResultAsync<Product[], DatabaseConnectionError>;
   findById: (
-    productId: productId
+    productId: ProductId
   ) => ResultAsync<Product | undefined, DatabaseConnectionError>;
   save: (
     product: UnsavedProduct

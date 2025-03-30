@@ -3,8 +3,8 @@ import {
   Product,
   ProductRepository as ProductRepositoryInterface,
   UnsavedProduct,
-  productId,
-} from '../domain/product';
+  ProductId,
+} from '../domain/';
 import * as schema from '../db/schema';
 import { sql } from 'drizzle-orm';
 import { ResultAsync, ok, Ok } from 'neverthrow';
@@ -45,7 +45,7 @@ const findById = depend(
   { db: databaseConnection },
   (
     { db },
-    productId: productId
+    productId: ProductId
   ): ResultAsync<Product | undefined, DatabaseConnectionError> =>
     ResultAsync.fromPromise(
       db
@@ -96,7 +96,7 @@ const save = depend(
         })
         .returning({ id: schema.products.productId })
         .execute()
-        .then(([{ id }]) => ({ ...product, productId: id })),
+        .then(([{ id }]) => ({ ...product, productId: id as ProductId })),
       (e) => e as DatabaseConnectionError
     )
 );

@@ -11,6 +11,7 @@ import {
 
 import { Context, Next } from 'hono';
 import { findAll, findById, save } from '../../usecase/product';
+import { ProductId } from '../../domain';
 
 const jwtSecret = process.env.JWT_SECRET || 'secret';
 const jwtAuth = () => (c: Context, next: Next) =>
@@ -111,7 +112,7 @@ const getProductByIdRoute = createRoute({
 
 products.openapi(getProductByIdRoute, async (c) => {
   const { id } = c.req.param();
-  const result = await findById(Number(id));
+  const result = await findById(ProductId.of(Number(id)));
   if (result.isErr()) {
     if (result.error instanceof NotFound) {
       return notFoundError(c, result.error);

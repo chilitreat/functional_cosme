@@ -1,9 +1,9 @@
-import { productId } from './product';
+import { ProductId } from './product';
 import { UserId } from './user';
 
 export type Review = {
   reviewId: reviewId;
-  productId: productId;
+  productId: ProductId;
   userId: UserId;
   rating: reviewRating;
   comment: string;

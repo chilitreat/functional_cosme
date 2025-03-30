@@ -1,7 +1,7 @@
 import { z, createRoute, OpenAPIHono } from '@hono/zod-openapi';
 import { databaseConnection } from '../../db/db';
 import * as schema from '../../db/schema';
-import { createUser } from '../../domain/user';
+import { User } from '../../domain';
 import { jwt, sign } from 'hono/jwt';
 import { eq } from 'drizzle-orm';
 import {
@@ -69,8 +69,6 @@ const UserSchema = z.object({
   password: z.string().min(8),
 });
 
-type UserInput = z.infer<typeof UserSchema>;
-
 // ユーザー登録
 const postRegisterRoute = createRoute({
   method: 'post',
@@ -123,7 +121,7 @@ users.openapi(postRegisterRoute, async (c) => {
     return badRequestError(c, error);
   }
   const { name, email, password } = data;
-  const user = createUser({ name, email, password });
+  const user = User.create({ name, email, password });
 
   if (user.isErr()) {
     return internalServerError(c, user.error);
@@ -139,11 +137,11 @@ users.openapi(postRegisterRoute, async (c) => {
       })
       .returning();
 
-      const { userId, name, email } = registeredUser[0];
-      return c.json({
-        message: 'User registered',
-        user: { id: userId, name, email },
-      });
+    const { userId, name, email } = registeredUser[0];
+    return c.json({
+      message: 'User registered',
+      user: { id: userId, name, email },
+    });
   } catch (error) {
     return internalServerError(c, error as Error);
   }
