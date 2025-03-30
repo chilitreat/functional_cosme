@@ -1,5 +1,5 @@
-import { Context, Effect } from 'effect';
-import { of } from 'effect/Chunk';
+import { DatabaseConnectionError } from '../db/db';
+import { Result, ok, err, ResultAsync } from 'neverthrow';
 
 export type DomainError = UndefinedProductCategoryError;
 
@@ -22,6 +22,26 @@ export type Product = {
 };
 
 export const Product = {
+  // of: (input: {
+  //   id: number;
+  //   name: string;
+  //   manufacturer: string;
+  //   category: string;
+  //   ingredients: string[];
+  //   createdAt: string;
+  // }): Effect.Effect<Product, DomainError> => {
+  //   if (!isValidProductCategory(input.category)) {
+  //     return Effect.fail(new UndefinedProductCategoryError('Undefined product category'));
+  //   }
+  //   return Effect.succeed({
+  //     productId: input.id,
+  //     name: input.name,
+  //     manufacturer: input.manufacturer,
+  //     category: input.category,
+  //     ingredients: input.ingredients,
+  //     createdAt: new Date(input.createdAt),
+  //   });
+  // },
   of: (input: {
     id: number;
     name: string;
@@ -29,11 +49,13 @@ export const Product = {
     category: string;
     ingredients: string[];
     createdAt: string;
-  }): Effect.Effect<Product, DomainError> => {
+  }): Result<Product, UndefinedProductCategoryError> => {
     if (!isValidProductCategory(input.category)) {
-      return Effect.fail(new UndefinedProductCategoryError('Undefined product category'));
+      return err(
+        new UndefinedProductCategoryError('Undefined product category')
+      );
     }
-    return Effect.succeed({
+    return ok({
       productId: input.id,
       name: input.name,
       manufacturer: input.manufacturer,
@@ -66,16 +88,35 @@ export const isValidProductCategory = (
   ].includes(category);
 };
 
+// export const createProduct = (input: {
+//   name: string;
+//   manufacturer: string;
+//   category: string;
+//   ingredients: string[];
+// }): Effect.Effect<UnsavedProduct, DomainError> => {
+//   if (!isValidProductCategory(input.category)) {
+//     return Effect.fail(
+//       new UndefinedProductCategoryError('Undefined product category')
+//     );
+//   }
+//   return Effect.succeed({
+//     name: input.name,
+//     manufacturer: input.manufacturer,
+//     category: input.category,
+//     ingredients: input.ingredients,
+//     createdAt: new Date(),
+//   });
+// };
 export const createProduct = (input: {
   name: string;
   manufacturer: string;
   category: string;
   ingredients: string[];
-}): Effect.Effect<UnsavedProduct, DomainError> => {
+}): Result<UnsavedProduct, UndefinedProductCategoryError> => {
   if (!isValidProductCategory(input.category)) {
-    return Effect.fail(new UndefinedProductCategoryError('Undefined product category'));
+    return err(new UndefinedProductCategoryError('Undefined product category'));
   }
-  return Effect.succeed({
+  return ok({
     name: input.name,
     manufacturer: input.manufacturer,
     category: input.category,
@@ -84,11 +125,21 @@ export const createProduct = (input: {
   });
 };
 
-export class ProductRepository extends Context.Tag('ProductRepository')<
-  ProductRepository,
-  {
-    findAll: () => Effect.Effect<Product[], DomainError>;
-    findById: (productId: productId) => Effect.Effect<Product | undefined, DomainError>;
-    save: (product: UnsavedProduct) => Effect.Effect<Product, DomainError>;
-  }
->() {}
+// export class ProductRepository extends Context.Tag('ProductRepository')<
+//   ProductRepository,
+//   {
+//     findAll: () => Effect.Effect<Product[], DomainError>;
+//     findById: (productId: productId) => Effect.Effect<Product | undefined, DomainError>;
+//     save: (product: UnsavedProduct) => Effect.Effect<Product, DomainError>;
+//   }
+// >() {}
+
+export interface ProductRepository {
+  findAll: () => ResultAsync<Product[], DatabaseConnectionError>;
+  findById: (
+    productId: productId
+  ) => ResultAsync<Product | undefined, DatabaseConnectionError>;
+  save: (
+    product: UnsavedProduct
+  ) => ResultAsync<Product, DatabaseConnectionError>;
+}

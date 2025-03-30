@@ -1,10 +1,5 @@
 import { z, createRoute, OpenAPIHono } from '@hono/zod-openapi';
 import { jwt } from 'hono/jwt';
-import { DatabaseConnectionLive, db } from '../../db/db';
-import {
-  createProduct,
-  ProductRepository,
-} from '../../domain/product';
 import {
   badRequestError,
   errorResponses,
@@ -15,8 +10,7 @@ import {
 } from '../common-error';
 
 import { Context, Next } from 'hono';
-import { Effect, Layer } from 'effect';
-import { ProductRepositoryLive } from '../../repository/ProductRepositoryLive';
+import { findAll, findById, save } from '../../usecase/product';
 
 const jwtSecret = process.env.JWT_SECRET || 'secret';
 const jwtAuth = () => (c: Context, next: Next) =>
@@ -36,7 +30,7 @@ const getProductsRoute = createRoute({
         'application/json': {
           schema: z.array(
             z.object({
-              id: z.string(),
+              id: z.number().int().positive(),
               name: z.string(),
               manufacturer: z.string(),
               category: z.string(),
@@ -46,7 +40,7 @@ const getProductsRoute = createRoute({
           ),
           example: [
             {
-              id: '1',
+              id: 1,
               name: 'スーパーすべすべクリーム',
               manufacturer: 'すべっすべ株式会社',
               category: 'skin_care',
@@ -62,30 +56,21 @@ const getProductsRoute = createRoute({
 });
 
 products.openapi(getProductsRoute, async (c) => {
-  const program = Effect.flatMap(ProductRepository, (repository) =>
-    Effect.map(repository.findAll(), (products) => products)
-  )
-    .pipe(
-      Effect.matchEffect({
-        onFailure: (err) => Effect.fail(err),
-        onSuccess: (products) => Effect.succeed(products),
-      })
-    )
-    .pipe(
-      Effect.catchAll((err) => {
-        return Effect.fail(err);
-      })
-    );
+  const response = await findAll();
+  if (response.isErr()) {
+    return internalServerError(c, response.error);
+  }
 
-  const response = await Effect.runPromise(
-    Effect.provide(
-      program,
-      // 依存関係が深くなったら、provideがどんどんネストする？
-      Layer.provide(ProductRepositoryLive, DatabaseConnectionLive)
-    )
-  );
+  const products = response.value.map((product) => ({
+    id: product.productId,
+    name: product.name,
+    manufacturer: product.manufacturer,
+    category: product.category,
+    ingredients: product.ingredients,
+    createdAt: product.createdAt,
+  }));
 
-  return c.json(response);
+  return c.json(products);
 });
 
 // 商品詳細取得
@@ -99,7 +84,7 @@ const getProductByIdRoute = createRoute({
       content: {
         'application/json': {
           schema: z.object({
-            id: z.string(),
+            id: z.number().int().positive(),
             name: z.string(),
             manufacturer: z.string(),
             category: z.string(),
@@ -107,7 +92,7 @@ const getProductByIdRoute = createRoute({
             createdAt: z.string(),
           }),
           example: {
-            id: '1',
+            id: 1,
             name: 'スーパーすべすべクリーム',
             manufacturer: 'すべっすべ株式会社',
             category: 'skin_care',
@@ -117,44 +102,32 @@ const getProductByIdRoute = createRoute({
         },
       },
     },
-    ...errorResponses([HttpErrorCodes.INTERNAL_SERVER_ERROR]),
+    ...errorResponses([
+      HttpErrorCodes.NOT_FOUND,
+      HttpErrorCodes.INTERNAL_SERVER_ERROR,
+    ]),
   },
 });
 
 products.openapi(getProductByIdRoute, async (c) => {
   const { id } = c.req.param();
-  const program = Effect.flatMap(ProductRepository, (repository) =>
-    Effect.map(repository.findById(Number(id)), (product) => product)
-  )
-    .pipe(
-      Effect.matchEffect({
-        onFailure: (err) => Effect.fail(err),
-        onSuccess: (product) => {
-          if (!product) {
-            return Effect.fail(new NotFound());
-          }
-          return Effect.succeed(product);
-        },
-      })
-    )
-    .pipe(
-      Effect.catchTags({
-        NotFound: (err) => Effect.succeed(notFoundError(c, err)),
-      })
-    )
-    .pipe(
-      Effect.catchAll((err) => {
-        return Effect.succeed(internalServerError(c, err))
-      })
-    );
+  const result = await findById(Number(id));
+  if (result.isErr()) {
+    if (result.error instanceof NotFound) {
+      return notFoundError(c, result.error);
+    }
+    return internalServerError(c, result.error);
+  }
 
-  const response = await Effect.runPromise(
-    Effect.provide(
-      program,
-      Layer.provide(ProductRepositoryLive, DatabaseConnectionLive)
-    )
-  );
-  return c.json(response);
+  const product = result.value;
+  return c.json({
+    id: product.productId,
+    name: product.name,
+    manufacturer: product.manufacturer,
+    category: product.category,
+    ingredients: product.ingredients,
+    createdAt: product.createdAt.toISOString(),
+  });
 });
 
 // 商品登録(管理者専用)
@@ -203,7 +176,7 @@ const postProductRoute = createRoute({
           example: {
             message: 'Product registered',
             product: {
-              id: '1',
+              id: 1,
               name: 'スーパーすべすべクリーム',
               manufacturer: 'すべっすべ株式会社',
               category: 'skin_care',
@@ -233,63 +206,25 @@ products.openapi(postProductRoute, async (c) => {
   if (!success || !data) {
     return badRequestError(c, error);
   }
-  const { name, manufacturer, category, ingredients } = data;
 
-  const program = createProduct({
-    name,
-    manufacturer,
-    category: category,
-    ingredients,
-  })
-    .pipe(
-      Effect.matchEffect({
-        onFailure: (err) =>
-          Effect.fail(new Error(`Invalid product data: ${err.type}`)),
-        onSuccess: (product) =>
-          Effect.succeed(
-            Effect.flatMap(ProductRepository, (repository) =>
-              repository.save(product)
-            )
-          ),
-      })
-    )
-    .pipe(
-      Effect.matchEffect({
-        onFailure: (err) => {
-          const errorMessage =
-            err instanceof Error ? err.message : 'Unknown error';
-          return Effect.fail(
-            new Error(`Failed to save product: ${errorMessage}`)
-          );
-        },
-        onSuccess: (productEffect) =>
-          Effect.flatMap(productEffect, (p) =>
-            Effect.succeed({
-              message: 'Product registered',
-              product: {
-                id: p.productId,
-                name: p.name,
-                manufacturer: p.manufacturer,
-                category: p.category,
-                ingredients: p.ingredients,
-                createdAt: p.createdAt.toISOString(),
-              },
-            })
-          ),
-      })
-    )
-    .pipe(
-      Effect.catchAll((err) => {
-        return Effect.fail(err);
-      })
-    );
+  const result = await save(data);
+  if (result.isErr()) {
+    return internalServerError(c, result.error);
+  }
 
-  const response = await Effect.runPromise(
-    Effect.provide(
-      program,
-      // 依存関係が深くなったら、provideがどんどんネストする？
-      Layer.provide(ProductRepositoryLive, DatabaseConnectionLive)
-    )
+  const product = result.value;
+  return c.json(
+    {
+      message: "Product registered",
+      product: {
+        id: product.productId,
+        name: product.name,
+        manufacturer: product.manufacturer,
+        category: product.category,
+        ingredients: product.ingredients,
+        createdAt: product.createdAt,
+      },
+    },
+    200
   );
-  return c.json(response);
 });
