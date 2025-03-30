@@ -1,11 +1,17 @@
-import { Effect } from 'effect';
 import { z, createRoute, OpenAPIHono } from '@hono/zod-openapi';
 import { databaseConnection } from '../../db/db';
 import * as schema from '../../db/schema';
-import { createUser, NotResisterdUser, User } from '../../domain/user';
+import { createUser } from '../../domain/user';
 import { jwt, sign } from 'hono/jwt';
 import { eq } from 'drizzle-orm';
-import { badRequestError, errorResponses, HttpErrorCodes, internalServerError, unauthorizedError } from '../common-error';
+import {
+  badRequestError,
+  errorResponses,
+  HttpErrorCodes,
+  internalServerError,
+  unauthorizedError,
+} from '../common-error';
+import { Context, Next } from 'hono';
 
 const jwtSecret = process.env.JWT_SECRET || 'secret';
 const jwtAuth = () => (c: Context, next: Next) =>
@@ -48,7 +54,13 @@ const getUsersRoute = createRoute({
 
 users.openapi(getUsersRoute, async (c) => {
   const users = await databaseConnection.select().from(schema.users).execute();
-  return c.json({ users });
+  return c.json({
+    users: users.map((user) => ({
+      id: user.userId,
+      name: user.name,
+      email: user.email,
+    })),
+  });
 });
 // --- 型定義 ---
 const UserSchema = z.object({
@@ -58,16 +70,6 @@ const UserSchema = z.object({
 });
 
 type UserInput = z.infer<typeof UserSchema>;
-
-const saveUserToDB = async (user: NotResisterdUser) =>
-  databaseConnection
-    .insert(schema.users)
-    .values({
-      name: user.name,
-      email: user.email,
-      passwordHash: user.passwordHash,
-    })
-    .returning();
 
 // ユーザー登録
 const postRegisterRoute = createRoute({
@@ -122,17 +124,29 @@ users.openapi(postRegisterRoute, async (c) => {
   }
   const { name, email, password } = data;
   const user = createUser({ name, email, password });
-  return Effect.runPromise(
-    Effect.match(user, {
-      onFailure: (err) => {
-        return internalServerError(c, err);
-      },
-      onSuccess: async (user) => {
-        const registeredUser = await saveUserToDB(user);
-        return c.json({ message: 'User registered', user: registeredUser });
-      },
-    })
-  );
+
+  if (user.isErr()) {
+    return internalServerError(c, user.error);
+  }
+
+  try {
+    const registeredUser = await databaseConnection
+      .insert(schema.users)
+      .values({
+        name: user.value.name,
+        email: user.value.email,
+        passwordHash: user.value.passwordHash,
+      })
+      .returning();
+
+      const { userId, name, email } = registeredUser[0];
+      return c.json({
+        message: 'User registered',
+        user: { id: userId, name, email },
+      });
+  } catch (error) {
+    return internalServerError(c, error as Error);
+  }
 });
 
 // --- 型定義 ---

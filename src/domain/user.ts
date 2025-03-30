@@ -1,5 +1,5 @@
-import { Effect, Either, pipe, Schema } from 'effect';
 import { HashError, hashPassword } from '../lib/utils';
+import { Result, err, ok } from 'neverthrow';
 
 export type User = {
   userId: UserId;
@@ -20,12 +20,14 @@ export const createUser = (input: {
   name: string;
   email: string;
   password: string;
-}): Effect.Effect<NotResisterdUser, DomainError> =>
-  pipe(
-    hashPassword(input.password),
-    Effect.map((passwordHash) => ({
-      name: input.name,
-      email: input.email,
-      passwordHash,
-    } as NotResisterdUser))
-  );
+}): Result<NotResisterdUser, DomainError> => {
+  const passwordHash = hashPassword(input.password);
+  if (passwordHash.isErr()) {
+    return err(passwordHash.error);
+  }
+  return ok({
+    name: input.name,
+    email: input.email,
+    passwordHash: passwordHash.value,
+  });
+};
