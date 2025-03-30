@@ -5,6 +5,6 @@
     "strict": true,
     "jsx": "react-jsx",
     "jsxImportSource": "hono/jsx",
-    "types": ["vitest/globals"]
+    "types": ["vitest/globals", "bun-types"]
   }
 }
