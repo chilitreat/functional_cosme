@@ -1,8 +1,5 @@
 export { User, UserId } from './user';
-export {
-  Product,
-  ProductId,
-  UnsavedProduct,
-  ProductRepository,
-} from './product';
-export { Review, reviewId } from './review';
+export type { UnsavedProduct, ProductRepositoryInterface } from './product';
+export { Product, ProductId } from './product';
+export type { ReviewRepositoryInterface, UnsavedReview } from './review';
+export { Review, ReviewId } from './review';

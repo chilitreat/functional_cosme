@@ -3,7 +3,7 @@ import { Result, err, ok } from 'neverthrow';
 import { HashError, hashPassword } from '../lib/utils';
 
 const UserIdBrand = Symbol('UserIdBrand');
-const UserIdSchema = z.number().int().positive().brand(UserIdBrand);
+export const UserIdSchema = z.number().int().positive().brand(UserIdBrand);
 export type UserId = z.infer<typeof UserIdSchema>;
 
 const UserSchema = z.object({
@@ -21,7 +21,7 @@ type DomainError = HashError;
 
 export type NotResisterdUser = Omit<User, 'userId' | 'createdAt'>;
 
-const UserId = {
+export const UserId = {
   of: (id: number): UserId => UserIdSchema.parse(id),
 };
 

@@ -1,7 +1,7 @@
 import { databaseConnection, DatabaseConnectionError } from '../db/db';
 import {
   Product,
-  ProductRepository as ProductRepositoryInterface,
+  ProductRepositoryInterface,
   UnsavedProduct,
   ProductId,
 } from '../domain/';

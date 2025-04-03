@@ -30,7 +30,11 @@ const isValidProductCategory = (
 };
 
 const ProductIdBrand = Symbol('ProductIdBrand');
-const ProductIdSchema = z.number().int().positive().brand(ProductIdBrand);
+export const ProductIdSchema = z
+  .number()
+  .int()
+  .positive()
+  .brand(ProductIdBrand);
 export type ProductId = z.infer<typeof ProductIdSchema>;
 
 const ProductSchema = z.object({
@@ -82,7 +86,9 @@ export const Product = {
     ingredients: string[];
   }): Result<UnsavedProduct, UndefinedProductCategoryError> => {
     if (!isValidProductCategory(input.category)) {
-      return err(new UndefinedProductCategoryError('Undefined product category'));
+      return err(
+        new UndefinedProductCategoryError('Undefined product category')
+      );
     }
     return ok({
       name: input.name,
@@ -91,14 +97,14 @@ export const Product = {
       ingredients: input.ingredients,
       createdAt: new Date(),
     });
-  }
+  },
 };
 
 export const ProductCategory = {
   isValid: isValidProductCategory,
 };
 
-export interface ProductRepository {
+export interface ProductRepositoryInterface {
   findAll: () => ResultAsync<Product[], DatabaseConnectionError>;
   findById: (
     productId: ProductId
