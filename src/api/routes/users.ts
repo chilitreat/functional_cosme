@@ -2,7 +2,6 @@ import { z, createRoute, OpenAPIHono } from '@hono/zod-openapi';
 import { databaseConnection } from '../../db/db';
 import * as schema from '../../db/schema';
 import { User } from '../../domain';
-import { jwt, sign } from 'hono/jwt';
 import { eq } from 'drizzle-orm';
 import {
   badRequestError,
@@ -11,11 +10,7 @@ import {
   internalServerError,
   unauthorizedError,
 } from '../common-error';
-import { Context, Next } from 'hono';
-
-const jwtSecret = process.env.JWT_SECRET || 'secret';
-const jwtAuth = () => (c: Context, next: Next) =>
-  jwt({ secret: jwtSecret })(c, next);
+import { jwtAuth, jwtSign } from '../jwt-auth';
 
 export const users = new OpenAPIHono();
 
@@ -199,7 +194,10 @@ const postLoginRoute = createRoute({
 users.openapi(postLoginRoute, async (c) => {
   const { email, password } = c.req.valid('json');
   const found = await databaseConnection
-    .select({ passwordHash: schema.users.passwordHash })
+    .select({
+      passwordHash: schema.users.passwordHash,
+      userId: schema.users.userId,
+    })
     .from(schema.users)
     .where(eq(schema.users.email, email))
     .limit(1);
@@ -212,9 +210,7 @@ users.openapi(postLoginRoute, async (c) => {
     return unauthorizedError(c, new Error('Invalid email or password'));
   }
 
-  const payload = {
-    exp: Math.floor(Date.now() / 1000) + 60 * 5, // Token expires in 5 minutes
-  };
-  const token = await sign(payload, jwtSecret);
+  const { userId } = found[0];
+  const token = await jwtSign(userId);
   return c.json({ message: 'Login successful', token });
 });

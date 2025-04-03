@@ -1,5 +1,4 @@
 import { z, createRoute, OpenAPIHono } from '@hono/zod-openapi';
-import { jwt } from 'hono/jwt';
 import {
   badRequestError,
   errorResponses,
@@ -9,13 +8,9 @@ import {
   notFoundError,
 } from '../common-error';
 
-import { Context, Next } from 'hono';
 import { findAll, findById, save } from '../../usecase/product';
 import { ProductId } from '../../domain';
-
-const jwtSecret = process.env.JWT_SECRET || 'secret';
-const jwtAuth = () => (c: Context, next: Next) =>
-  jwt({ secret: jwtSecret })(c, next);
+import { jwtAuth } from '../jwt-auth';
 
 export const products = new OpenAPIHono();
 
