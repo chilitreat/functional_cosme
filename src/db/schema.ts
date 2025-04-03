@@ -25,10 +25,10 @@ export const products = sqliteTable('products', {
 
 export const reviews = sqliteTable('reviews', {
   reviewId: text('review_id').primaryKey().notNull(), // クチコミID
-  productId: text('product_id')
+  productId: integer('product_id')
     .notNull()
     .references(() => products.productId), // 商品ID
-  userId: text('user_id')
+  userId: integer('user_id')
     .notNull()
     .references(() => users.userId), // ユーザーID
   rating: integer('rating').notNull(), // 評価 (1~7)
