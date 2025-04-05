@@ -1,9 +1,8 @@
 import { BunSQLiteDatabase, drizzle } from 'drizzle-orm/bun-sqlite';
 import { Database } from 'bun:sqlite';
-// import { Context, Effect, Layer } from 'effect';
 import { DrizzleError } from 'drizzle-orm';
 
-const databaseFilePath = './database/database.sqlite';
+const databaseFilePath = './database.sqlite';
 
 // いずれはDatabaseConnection(Live)に切り替える
 const sqlite = new Database(databaseFilePath);

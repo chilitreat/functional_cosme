@@ -6,7 +6,7 @@
       "previewLimit": 50,
       "driver": "SQLite",
       "name": "functional_cosme",
-      "database": "${workspaceFolder:functional-cosme}/database/database.sqlite"
+      "database": "${workspaceFolder:functional-cosme}/database.sqlite"
     }
   ]
 }

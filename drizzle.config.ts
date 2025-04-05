@@ -5,6 +5,6 @@ export default defineConfig({
   schema: './src/db/schema.ts', // スキーマファイルのパス
   dialect: 'sqlite',
   dbCredentials: {
-    url: './database/database.sqlite', // SQLiteファイルのパス
+    url: './database.sqlite', // SQLiteファイルのパス
   },
 });
