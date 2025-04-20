@@ -5,6 +5,8 @@ import {
   HttpErrorCodes,
   internalServerError,
   unauthorizedError,
+  forbiddenError,
+  notFoundError,
 } from '../common-error';
 import { jwtAuth } from '../jwt-auth';
 import { erase, findByProductId, save } from '../../usecase/review';
@@ -199,6 +201,7 @@ const deleteReviewRoute = createRoute({
   method: 'delete',
   path: '/reviews/:id',
   tags: ['reviews'],
+  middleware: [jwtAuth()] as const,
   parameters: [
     {
       name: 'id',
@@ -222,7 +225,9 @@ const deleteReviewRoute = createRoute({
       },
     },
     ...errorResponses([
-      HttpErrorCodes.BAD_REQUEST,
+      HttpErrorCodes.UNAUTHORIZED,
+      HttpErrorCodes.FORBIDDEN,
+      HttpErrorCodes.NOT_FOUND,
       HttpErrorCodes.INTERNAL_SERVER_ERROR,
     ]),
   },
@@ -230,6 +235,22 @@ const deleteReviewRoute = createRoute({
 
 reviews.openapi(deleteReviewRoute, async (c) => {
   const { id } = c.req.param();
+  const userId = c.get('userId') as number | undefined;
+  if (!userId) {
+    return unauthorizedError(c, new Error('User ID not found in JWT'));
+  }
+
+  // Fetch the review to check ownership
+  const reviews = await findByProductId(Number(id));
+  if (reviews.isErr() || reviews.value.length === 0) {
+    return notFoundError(c, new Error('Review not found'));
+  }
+
+  const review = reviews.value.find((r) => r.reviewId === id);
+  if (!review || review.userId !== userId) {
+    return forbiddenError(c, new Error('You are not authorized to delete this review'));
+  }
+
   const result = await erase(id);
   if (result.isErr()) {
     return internalServerError(c, result.error);
