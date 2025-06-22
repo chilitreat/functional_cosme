@@ -80,6 +80,14 @@ npm run seed:run
 - 依存性注入は`velona`パターンに従う
 - UUID生成はNode.js標準の`crypto.randomUUID()`を使用
 
+### テスト環境
+
+- **テストランナー**: Vitest
+- **設定ファイル**: `vitest.config.ts`（テスト専用設定）
+- **テストファイル**: `src/**/*.test.ts`, `src/**/*.spec.ts`
+- **カバレッジ**: v8プロバイダー（HTML/JSON/テキスト形式）
+- **実行環境**: Node.js環境でのテスト実行
+
 ### API仕様確認
 
 - **Swagger UI**: `http://localhost:3000/doc`
