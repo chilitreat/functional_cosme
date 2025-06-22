@@ -206,7 +206,10 @@ users.openapi(postLoginRoute, async (c) => {
     return unauthorizedError(c, new Error('Invalid email or password'));
   }
 
-  if (!(await Bun.password.verify(password, found[0].passwordHash))) {
+  const { verifyPassword } = await import('../../lib/utils');
+  const passwordVerification = await verifyPassword(password, found[0].passwordHash);
+  
+  if (passwordVerification.isErr() || !passwordVerification.value) {
     return unauthorizedError(c, new Error('Invalid email or password'));
   }
 

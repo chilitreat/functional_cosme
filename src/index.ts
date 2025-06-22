@@ -46,4 +46,25 @@ showRoutes(app, {
   verbose: true,
 });
 
+const port = parseInt(process.env.PORT || '3000');
+
+console.log(`Starting server on port ${port}`);
+
+// Use Hono's serve utility
+import { serve } from '@hono/node-server';
+
+try {
+  serve({
+    fetch: app.fetch,
+    port,
+  }, (info) => {
+    console.log(`✅ Server is running on http://localhost:${info.port}`);
+    console.log(`📖 Swagger UI: http://localhost:${info.port}/doc`);
+    console.log(`📋 API spec: http://localhost:${info.port}/specification`);
+  });
+} catch (error) {
+  console.error('❌ Failed to start server:', error);
+  process.exit(1);
+}
+
 export default app;

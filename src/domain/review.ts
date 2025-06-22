@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { ProductId, ProductIdSchema } from './product';
 import { UserId, UserIdSchema } from './user';
-import { randomUUIDv7 } from 'bun';
+import { randomUUID } from 'crypto';
 import { Result, ResultAsync } from 'neverthrow';
 import { DatabaseConnectionError } from '../db/db';
 
@@ -63,7 +63,7 @@ export const Review = {
     Result.fromThrowable(UnsavedReviewSchema.parse, (error) => {
       // console.error('Error creating review:', error);
       throw new Error('Invalid review data: ' + error);
-    })({ ...input, reviewId: randomUUIDv7() }),
+    })({ ...input, reviewId: randomUUID() }),
 };
 
 export interface ReviewRepositoryInterface {

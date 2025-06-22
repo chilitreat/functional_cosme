@@ -1,17 +1,20 @@
 {
   "name": "functional-cosme",
+  "type": "module",
   "scripts": {
-    "dev": "bun run --hot src/index.ts",
-    "build": "bun build ./src/ --outdir dist/ --target=bun",
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
     "test": "vitest",
     "migration:run": "drizzle-kit migrate --config=./drizzle.config.ts",
     "migration:generate": "drizzle-kit generate --config=./drizzle.config.ts",
-    "seed:run": "bun run database/seed.ts"
+    "seed:run": "tsx database/seed.ts"
   },
   "dependencies": {
+    "@hono/node-server": "^1.14.4",
     "@hono/swagger-ui": "^0.5.0",
     "@hono/zod-openapi": "^0.18.3",
     "@hono/zod-validator": "^0.4.2",
+    "bcrypt": "^5.1.1",
     "better-sqlite3": "^11.8.1",
     "drizzle-orm": "^0.38.3",
     "drizzle-zod": "^0.7.0",
@@ -23,9 +26,14 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@types/bun": "latest",
-    "bun-types": "^1.2.7",
+    "@types/bcrypt": "^5.0.2",
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^22.0.0",
     "drizzle-kit": "^0.30.1",
+    "nodemon": "^3.1.9",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.20.3",
+    "typescript": "^5.7.2",
     "vite": "^6.2.2",
     "vitest": "^3.0.9"
   }

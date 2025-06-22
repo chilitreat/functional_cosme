@@ -6,27 +6,27 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # 開発サーバー起動（ホットリロード）
-bun run dev
+npm run dev
 
 # プロダクションビルド  
-bun run build
+npm run build
 
 # テスト実行
-bun run test
+npm run test
 
 # DBマイグレーション生成
-bun run migration:generate
+npm run migration:generate
 
 # DBマイグレーション実行
-bun run migration:run
+npm run migration:run
 
 # シードデータ投入
-bun run seed:run
+npm run seed:run
 ```
 
 ## アーキテクチャ概要
 
-このプロジェクトは**関数型プログラミング**と**クリーンアーキテクチャ**を採用した化粧品クチコミAPIです。
+このプロジェクトは**関数型プログラミング**と**クリーンアーキテクチャ**を採用した化粧品クチコミAPIです。Node.js v22で実行します。
 
 ### レイヤー構造
 
@@ -60,7 +60,7 @@ bun run seed:run
 
 ### データベース設計
 
-- **ORM**: Drizzle + SQLite
+- **ORM**: Drizzle + better-sqlite3
 - **マイグレーション**: `/migrations/`ディレクトリで管理
 - **主要テーブル**: users, products, reviews
 - **リレーション**: 外部キー制約による整合性保証
@@ -68,7 +68,7 @@ bun run seed:run
 ### 認証・セキュリティ
 
 - **JWT認証**: 保護されたエンドポイント用
-- **パスワードハッシュ化**: Bunの組み込み暗号化
+- **パスワードハッシュ化**: bcryptでハッシュ化・verify
 - **入力検証**: APIバウンダリでのZodバリデーション
 
 ### 開発時の注意点
@@ -78,8 +78,10 @@ bun run seed:run
 - APIエンドポイント追加時はOpenAPIスキーマも定義
 - branded型を使用してIDの混在を防止
 - 依存性注入は`velona`パターンに従う
+- UUID生成はNode.js標準の`crypto.randomUUID()`を使用
 
 ### API仕様確認
 
 - **Swagger UI**: `http://localhost:3000/doc`
 - **OpenAPI仕様**: `http://localhost:3000/specification`
+
