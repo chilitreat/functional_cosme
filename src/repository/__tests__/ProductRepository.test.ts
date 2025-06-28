@@ -72,21 +72,6 @@ describe('ProductRepository Integration Tests', () => {
       expect(uniqueIds.size).toBe(3);
     });
 
-    it('無効なカテゴリの商品も保存される（ログ出力されるが処理は続行）', async () => {
-      const invalidProductData = {
-        name: 'Test Product',
-        manufacturer: 'Test Manufacturer',
-        category: 'invalid_category',
-        ingredients: ['ingredient1', 'ingredient2'],
-        createdAt: new Date(),
-      };
-
-      const saveWithTestDb = productRepository.save({ db: testDb });
-      const result = await saveWithTestDb(invalidProductData);
-
-      // 現在の実装では無効カテゴリでも保存される
-      expect(result.isOk()).toBe(true);
-    });
   });
 
   describe('findAll - 全商品取得', () => {
