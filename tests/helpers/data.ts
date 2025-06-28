@@ -15,7 +15,7 @@ export const createValidProductData = () => ({
   name: 'Test Product',
   manufacturer: 'Test Manufacturer',
   category: 'skin_care' as const,
-  ingredients: 'Test ingredient 1, Test ingredient 2',
+  ingredients: ['Test ingredient 1', 'Test ingredient 2'],
 });
 
 /**
