@@ -2,7 +2,10 @@ import { Context, Next } from 'hono';
 import { jwt, sign } from 'hono/jwt';
 import { unauthorizedError } from './common-error';
 
-const jwtSecret = process.env.JWT_SECRET || 'secret';
+const jwtSecret = process.env.JWT_SECRET;
+if (!jwtSecret) {
+  throw new Error('JWT_SECRET environment variable is required');
+}
 
 export const jwtAuth = () => async (c: Context, next: Next) => {
   // JWT認証を実行
@@ -26,7 +29,7 @@ export const jwtAuth = () => async (c: Context, next: Next) => {
 export const jwtSign = (userId: number) => {
   const payload = {
     user: { id: userId },
-    exp: Math.floor(Date.now() / 1000) + 60 * 5, // Token expires in 5 minutes
+    exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24, // Token expires in 24 hours
   };
   // JWTトークンを生成
   return sign(payload, jwtSecret);
