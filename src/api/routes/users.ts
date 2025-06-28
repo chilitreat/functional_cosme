@@ -1,8 +1,4 @@
 import { z, createRoute, OpenAPIHono } from '@hono/zod-openapi';
-import { databaseConnection } from '../../db/db';
-import * as schema from '../../db/schema';
-import { User } from '../../domain';
-import { eq } from 'drizzle-orm';
 import {
   badRequestError,
   errorResponses,
@@ -11,6 +7,12 @@ import {
   unauthorizedError,
 } from '../common-error';
 import { jwtAuth, jwtSign } from '../jwt-auth';
+import {
+  registerUser,
+  getAllUsers,
+  getUserByEmail,
+} from '../../usecase/user';
+import { verifyPassword } from '../../lib/utils';
 
 export const users = new OpenAPIHono();
 
@@ -48,9 +50,14 @@ const getUsersRoute = createRoute({
 });
 
 users.openapi(getUsersRoute, async (c) => {
-  const users = await databaseConnection.select().from(schema.users).execute();
+  const usersResult = await getAllUsers();
+  
+  if (usersResult.isErr()) {
+    return internalServerError(c, usersResult.error);
+  }
+  
   return c.json({
-    users: users.map((user) => ({
+    users: usersResult.value.map((user) => ({
       id: user.userId,
       name: user.name,
       email: user.email,
@@ -113,33 +120,27 @@ const postRegisterRoute = createRoute({
 users.openapi(postRegisterRoute, async (c) => {
   const { success, error, data } = UserSchema.safeParse(await c.req.json());
   if (!success || !data) {
-    return badRequestError(c, error);
+    const errorMessage = error?.issues?.map(issue => issue.message).join(', ') || 'Invalid input';
+    return badRequestError(c, new Error(errorMessage));
   }
+  
   const { name, email, password } = data;
-  const user = await User.create({ name, email, password });
+  
+  const userResult = await registerUser({ name, email, password });
 
-  if (user.isErr()) {
-    return internalServerError(c, user.error);
+  if (userResult.isErr()) {
+    // Email already exists error handling
+    if (userResult.error.message === 'Email already exists') {
+      return badRequestError(c, userResult.error);
+    }
+    return internalServerError(c, userResult.error);
   }
 
-  try {
-    const registeredUser = await databaseConnection
-      .insert(schema.users)
-      .values({
-        name: user.value.name,
-        email: user.value.email,
-        passwordHash: user.value.passwordHash,
-      })
-      .returning();
-
-    const { userId, name, email } = registeredUser[0];
-    return c.json({
-      message: 'User registered',
-      user: { id: userId, name, email },
-    });
-  } catch (error) {
-    return internalServerError(c, error as Error);
-  }
+  const user = userResult.value;
+  return c.json({
+    message: 'User registered',
+    user: { id: user.userId, name: user.name, email: user.email },
+  });
 });
 
 // --- 型定義 ---
@@ -193,27 +194,24 @@ const postLoginRoute = createRoute({
 
 users.openapi(postLoginRoute, async (c) => {
   const { email, password } = c.req.valid('json');
-  const found = await databaseConnection
-    .select({
-      passwordHash: schema.users.passwordHash,
-      userId: schema.users.userId,
-    })
-    .from(schema.users)
-    .where(eq(schema.users.email, email))
-    .limit(1);
-
-  if (found.length === 0) {
+  
+  const userResult = await getUserByEmail(email);
+  
+  if (userResult.isErr()) {
+    return internalServerError(c, userResult.error);
+  }
+  
+  if (!userResult.value) {
     return unauthorizedError(c, new Error('Invalid email or password'));
   }
 
-  const { verifyPassword } = await import('../../lib/utils');
-  const passwordVerification = await verifyPassword(password, found[0].passwordHash);
-  
+  const user = userResult.value;
+  const passwordVerification = await verifyPassword(password, user.passwordHash);
+
   if (passwordVerification.isErr() || !passwordVerification.value) {
     return unauthorizedError(c, new Error('Invalid email or password'));
   }
 
-  const { userId } = found[0];
-  const token = await jwtSign(userId);
+  const token = await jwtSign(user.userId);
   return c.json({ message: 'Login successful', token });
 });

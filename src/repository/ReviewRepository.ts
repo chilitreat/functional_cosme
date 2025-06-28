@@ -47,8 +47,12 @@ const save = depend(
             createdAt: new Date(row.createdAt),
           };
         }),
-      (e) => {
+      (e: any) => {
         console.error('Error saving review:', e);
+        // SQLite外部キー制約エラーを適切な形に変換
+        if (e.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+          return new Error('Product or User not found') as DatabaseConnectionError;
+        }
         return e as DatabaseConnectionError;
       }
     );
@@ -100,10 +104,10 @@ const erase = depend(
         console.error('Error deleting review:', e);
         return e as DatabaseConnectionError;
       }
-    )
+    ).map(() => undefined)
 );
 
-export const reviewRepository: ReviewRepositoryInterface = {
+export const reviewRepository = {
   save,
   findByProductId,
   erase,
