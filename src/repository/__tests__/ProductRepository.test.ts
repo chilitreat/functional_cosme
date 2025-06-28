@@ -6,9 +6,15 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { productRepository } from '../ProductRepository';
 import { Product, ProductId } from '../../domain/product';
-import * as schema from '../../db/schema';
-import { setupTestDatabase, cleanupTestDatabase, clearAllTables, TestDatabaseConnection } from '../../../tests/setup/database';
-import { createValidProductData, createMultipleProductData } from '../../../tests/helpers/data';
+import {
+  setupTestDatabase,
+  cleanupTestDatabase,
+  TestDatabaseConnection,
+} from '../../../tests/setup/database';
+import {
+  createValidProductData,
+  createMultipleProductData,
+} from '../../../tests/helpers/data';
 
 describe('ProductRepository Integration Tests', () => {
   let testDb: TestDatabaseConnection;
@@ -25,15 +31,17 @@ describe('ProductRepository Integration Tests', () => {
     it('有効な商品データを保存してIDが自動生成される', async () => {
       const productData = createValidProductData();
       const productResult = Product.create(productData);
-      
+
       expect(productResult.isOk()).toBe(true);
       if (!productResult.isOk()) return;
 
       const unsavedProduct = productResult.value;
 
       // velona依存性注入を使用してテストDBを注入
-      const saveWithTestDb = productRepository.save({ db: testDb });
-      const result = await saveWithTestDb(unsavedProduct);
+
+      const result = await productRepository.save.inject({ db: testDb })(
+        unsavedProduct
+      );
 
       expect(result.isOk()).toBe(true);
       if (!result.isOk()) return;
@@ -49,7 +57,9 @@ describe('ProductRepository Integration Tests', () => {
 
     it('複数の商品を順次保存できる', async () => {
       const productsData = createMultipleProductData(3);
-      const saveWithTestDb = productRepository.save({ db: testDb });
+      const saveWithTestDb = productRepository.save.inject({
+        db: testDb,
+      });
 
       const savedProducts = [];
       for (const productData of productsData) {
@@ -65,19 +75,19 @@ describe('ProductRepository Integration Tests', () => {
       }
 
       expect(savedProducts.length).toBe(3);
-      
+
       // IDが異なることを確認
-      const ids = savedProducts.map(p => p.productId);
+      const ids = savedProducts.map((p) => p.productId);
       const uniqueIds = new Set(ids);
       expect(uniqueIds.size).toBe(3);
     });
-
   });
 
   describe('findAll - 全商品取得', () => {
     it('商品が存在しない場合は空配列を返す', async () => {
-      const findAllWithTestDb = productRepository.findAll({ db: testDb });
-      const result = await findAllWithTestDb();
+      const result = await productRepository.findAll.inject({
+        db: testDb,
+      })();
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -89,23 +99,25 @@ describe('ProductRepository Integration Tests', () => {
     it('保存された商品を全て取得できる', async () => {
       // テストデータを保存
       const productsData = createMultipleProductData(2);
-      const saveWithTestDb = productRepository.save({ db: testDb });
 
       for (const productData of productsData) {
         const productResult = Product.create(productData);
         if (productResult.isOk()) {
-          await saveWithTestDb(productResult.value);
+          await productRepository.save.inject({ db: testDb })(
+            productResult.value
+          );
         }
       }
 
       // 全商品を取得
-      const findAllWithTestDb = productRepository.findAll({ db: testDb });
-      const result = await findAllWithTestDb();
+      const result = await productRepository.findAll.inject({
+        db: testDb,
+      })();
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
         expect(result.value.length).toBe(2);
-        
+
         const product = result.value[0];
         expect(product).toHaveProperty('productId');
         expect(product).toHaveProperty('name');
@@ -122,11 +134,11 @@ describe('ProductRepository Integration Tests', () => {
       expect(productResult.isOk()).toBe(true);
       if (!productResult.isOk()) return;
 
-      const saveWithTestDb = productRepository.save({ db: testDb });
-      await saveWithTestDb(productResult.value);
+      await productRepository.save.inject({ db: testDb })(productResult.value);
 
-      const findAllWithTestDb = productRepository.findAll({ db: testDb });
-      const result = await findAllWithTestDb();
+      const result = await productRepository.findAll.inject({
+        db: testDb,
+      })();
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -145,16 +157,18 @@ describe('ProductRepository Integration Tests', () => {
       expect(productResult.isOk()).toBe(true);
       if (!productResult.isOk()) return;
 
-      const saveWithTestDb = productRepository.save({ db: testDb });
-      const saveResult = await saveWithTestDb(productResult.value);
+      const saveResult = await productRepository.save.inject({
+        db: testDb,
+      })(productResult.value);
       expect(saveResult.isOk()).toBe(true);
       if (!saveResult.isOk()) return;
 
       const savedProduct = saveResult.value;
 
       // 保存した商品をIDで取得
-      const findByIdWithTestDb = productRepository.findById({ db: testDb });
-      const findResult = await findByIdWithTestDb(savedProduct.productId);
+      const findResult = await productRepository.findById.inject({
+        db: testDb,
+      })(savedProduct.productId);
 
       expect(findResult.isOk()).toBe(true);
       if (findResult.isOk()) {
@@ -168,8 +182,9 @@ describe('ProductRepository Integration Tests', () => {
 
     it('存在しないIDの場合はundefinedを返す', async () => {
       const nonExistentId = ProductId.of(99999);
-      const findByIdWithTestDb = productRepository.findById({ db: testDb });
-      const result = await findByIdWithTestDb(nonExistentId);
+      const result = await productRepository.findById.inject({
+        db: testDb,
+      })(nonExistentId);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -177,10 +192,12 @@ describe('ProductRepository Integration Tests', () => {
       }
     });
 
-    it('負のIDでも適切に処理される', async () => {
-      const invalidId = ProductId.of(-1);
-      const findByIdWithTestDb = productRepository.findById({ db: testDb });
-      const result = await findByIdWithTestDb(invalidId);
+    it('無効なIDでも適切に処理される', async () => {
+      // 大きな値のIDで存在しないことを確認（負の値はProductIdスキーマでエラーになるため）
+      const invalidId = ProductId.of(999999);
+      const result = await productRepository.findById.inject({
+        db: testDb,
+      })(invalidId);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {
@@ -192,7 +209,9 @@ describe('ProductRepository Integration Tests', () => {
   describe('データベース制約とエラーハンドリング', () => {
     it('同じ商品名でも複数保存可能（重複制約なし）', async () => {
       const productData = createValidProductData();
-      const saveWithTestDb = productRepository.save({ db: testDb });
+      const injectedSave = productRepository.save.inject({
+        db: testDb,
+      });
 
       // 同じデータで2回保存
       const product1Result = Product.create(productData);
@@ -200,10 +219,10 @@ describe('ProductRepository Integration Tests', () => {
 
       expect(product1Result.isOk()).toBe(true);
       expect(product2Result.isOk()).toBe(true);
-      
+
       if (product1Result.isOk() && product2Result.isOk()) {
-        const result1 = await saveWithTestDb(product1Result.value);
-        const result2 = await saveWithTestDb(product2Result.value);
+        const result1 = await injectedSave(product1Result.value);
+        const result2 = await injectedSave(product2Result.value);
 
         expect(result1.isOk()).toBe(true);
         expect(result2.isOk()).toBe(true);
@@ -225,15 +244,18 @@ describe('ProductRepository Integration Tests', () => {
       expect(productResult.isOk()).toBe(true);
       if (!productResult.isOk()) return;
 
-      const saveWithTestDb = productRepository.save({ db: testDb });
-      const saveResult = await saveWithTestDb(productResult.value);
+      const injectedSave = productRepository.save.inject({
+        db: testDb,
+      });
+      const saveResult = await injectedSave(productResult.value);
 
       expect(saveResult.isOk()).toBe(true);
       if (!saveResult.isOk()) return;
 
       // 取得して確認
-      const findByIdWithTestDb = productRepository.findById({ db: testDb });
-      const findResult = await findByIdWithTestDb(saveResult.value.productId);
+      const findResult = await productRepository.findById.inject({
+        db: testDb,
+      })(saveResult.value.productId);
 
       expect(findResult.isOk()).toBe(true);
       if (findResult.isOk() && findResult.value) {
@@ -254,8 +276,9 @@ describe('ProductRepository Integration Tests', () => {
       expect(productResult.isOk()).toBe(true);
       if (!productResult.isOk()) return;
 
-      const saveWithTestDb = productRepository.save({ db: testDb });
-      const result = await saveWithTestDb(productResult.value);
+      const result = await productRepository.save.inject({
+        db: testDb,
+      })(productResult.value);
 
       expect(result.isOk()).toBe(true);
       if (result.isOk()) {

@@ -25,7 +25,10 @@ const findAll = depend(
               name: row.name,
               manufacturer: row.manufacturer,
               category: row.category,
-              ingredients: row.ingredients.split(','),
+              ingredients:
+                row.ingredients && row.ingredients !== ''
+                  ? row.ingredients.split(',')
+                  : [],
               createdAt: row.createdAt,
             }).mapErr((error) => {
               // UndefinedProductCategoryErrorはログに出力して処理を続行
@@ -63,7 +66,10 @@ const findById = depend(
             name: row.name,
             manufacturer: row.manufacturer,
             category: row.category,
-            ingredients: row.ingredients.split(','),
+            ingredients:
+              row.ingredients && row.ingredients !== ''
+                ? row.ingredients.split(',')
+                : [],
             createdAt: row.createdAt,
           });
 
@@ -101,7 +107,7 @@ const save = depend(
     )
 );
 
-export const productRepository: ProductRepositoryInterface = {
+export const productRepository = {
   findAll,
   findById,
   save,
