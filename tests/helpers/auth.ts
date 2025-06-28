@@ -12,19 +12,12 @@ const JWT_SECRET = process.env.JWT_SECRET || 'secret';
 /**
  * テスト用ユーザーデータを作成
  */
-export const createTestUserData = () => ({
-  name: 'Test User',
-  email: 'test@example.com',
-  password: 'testpassword123',
-});
+// Removed unused helper function `createTestUserData`.
 
 /**
  * テスト用ユーザーを作成
  */
-export const createTestUser = async () => {
-  const userData = createTestUserData();
-  return await User.create(userData);
-};
+// Removed unused helper function `createTestUser`.
 
 /**
  * ユーザー用のJWTトークンを生成（実際のアプリと同じ形式）

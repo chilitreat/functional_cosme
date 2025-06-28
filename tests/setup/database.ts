@@ -5,7 +5,6 @@
 
 import { BetterSQLite3Database, drizzle } from 'drizzle-orm/better-sqlite3';
 import Database from 'better-sqlite3';
-import { migrate } from 'drizzle-kit/api';
 import * as schema from '../../src/db/schema';
 import { sql } from 'drizzle-orm';
 import { hashPassword } from '../helpers/auth';

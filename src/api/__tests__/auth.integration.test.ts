@@ -251,43 +251,41 @@ describe('Authentication Flow Integration Tests', () => {
 
   describe('複数ユーザーでの並行アクセス', () => {
     it('複数ユーザーが同時にログインして異なるリソースにアクセス', async () => {
-      // ユーザー1のログイン
+      // 並行してユーザー1とユーザー2のログインを実行
       const loginData1 = {
         email: 'test1@example.com',
         password: 'password',
       };
-
-      const loginResponse1 = await app.request('/api/users/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(loginData1),
-      });
-
-      const { token: token1 } = await loginResponse1.json();
-
-      // ユーザー2のログイン
       const loginData2 = {
         email: 'test2@example.com',
         password: 'password',
       };
 
-      const loginResponse2 = await app.request('/api/users/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(loginData2),
-      });
+      const [loginResponse1, loginResponse2] = await Promise.all([
+        app.request('/api/users/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(loginData1),
+        }),
+        app.request('/api/users/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(loginData2),
+        }),
+      ]);
 
+      const { token: token1 } = await loginResponse1.json();
       const { token: token2 } = await loginResponse2.json();
 
-      // 両方のトークンが有効であることを確認
-      const user1Response = await app.request('/api/users', {
-        headers: { 'Authorization': `Bearer ${token1}` },
-      });
-
-      const user2Response = await app.request('/api/users', {
-        headers: { 'Authorization': `Bearer ${token2}` },
-      });
-
+      // 並行して両方のトークンでリソースにアクセス
+      const [user1Response, user2Response] = await Promise.all([
+        app.request('/api/users', {
+          headers: { 'Authorization': `Bearer ${token1}` },
+        }),
+        app.request('/api/users', {
+          headers: { 'Authorization': `Bearer ${token2}` },
+        }),
+      ]);
       expect(user1Response.status).toBe(200);
       expect(user2Response.status).toBe(200);
     });
