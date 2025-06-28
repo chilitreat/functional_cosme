@@ -93,7 +93,7 @@ describe('Products API Integration Tests', () => {
       const response = await app.request(`/api/products/${invalidId}`);
 
       // 無効なID形式の場合の期待されるステータスコード
-      expect([400, 404, 500]).toContain(response.status);
+      expect(response.status).toBe(400);
     });
   });
 
