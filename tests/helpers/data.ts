@@ -45,7 +45,7 @@ export const createMultipleProductData = (count: number) => {
     name: `Test Product ${i + 1}`,
     manufacturer: `Test Manufacturer ${i + 1}`,
     category: 'skin_care' as const,
-    ingredients: `Test ingredient ${i + 1}, Test ingredient ${i + 2}`,
+    ingredients: [`Test ingredient ${i + 1}`, `Test ingredient ${i + 2}`],
   }));
 };
 
