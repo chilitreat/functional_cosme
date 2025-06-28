@@ -108,7 +108,7 @@ describe('Review Flow E2E Tests', () => {
       expect(Array.isArray(productReviews)).toBe(true);
       
       const postedReview = productReviews.find(
-        (review: any) => review.comment === reviewData.comment
+        (review: { comment: string }) => review.comment === reviewData.comment
       );
       expect(postedReview).toBeDefined();
       expect(postedReview.rating).toBe(reviewData.rating);
@@ -192,8 +192,8 @@ describe('Review Flow E2E Tests', () => {
 
       expect(reviews.length).toBeGreaterThanOrEqual(2); // シードデータ + 新規投稿
       
-      const user1Review = reviews.find((r: any) => r.comment.includes('ユーザー1'));
-      const user2Review = reviews.find((r: any) => r.comment.includes('ユーザー2'));
+      const user1Review = reviews.find((r: { comment: string }) => r.comment.includes('ユーザー1'));
+      const user2Review = reviews.find((r: { comment: string }) => r.comment.includes('ユーザー2'));
 
       expect(user1Review).toBeDefined();
       expect(user2Review).toBeDefined();
@@ -244,7 +244,7 @@ describe('Review Flow E2E Tests', () => {
       // レビューが投稿されたことを確認
       const reviewsResponse = await app.request(`/api/reviews?productId=${reviewData.productId}`);
       const reviews = await reviewsResponse.json();
-      const postedReview = reviews.find((r: any) => r.id === reviewId);
+      const postedReview = reviews.find((r: { id: string }) => r.id === reviewId);
       expect(postedReview).toBeDefined();
 
       // レビュー削除
@@ -260,7 +260,7 @@ describe('Review Flow E2E Tests', () => {
       // レビューが削除されたことを確認
       const reviewsAfterDelete = await app.request(`/api/reviews?productId=${reviewData.productId}`);
       const reviewsAfterDeleteJson = await reviewsAfterDelete.json();
-      const deletedReview = reviewsAfterDeleteJson.find((r: any) => r.id === reviewId);
+      const deletedReview = reviewsAfterDeleteJson.find((r: { id: string }) => r.id === reviewId);
       expect(deletedReview).toBeUndefined();
     });
   });
@@ -302,7 +302,7 @@ describe('Review Flow E2E Tests', () => {
         body: JSON.stringify(invalidReviewData),
       });
 
-      expect([400, 404, 500]).toContain(response.status); // エラーが返されることを確認
+      expect(response.status).toBe(404); // 商品が見つからないエラー
     });
 
     it('他人のレビュー削除試行はエラー', async () => {
@@ -372,7 +372,7 @@ describe('Review Flow E2E Tests', () => {
         },
       });
 
-      expect([403, 404]).toContain(deleteResponse.status); // 権限エラーまたは見つからないエラー
+      expect(deleteResponse.status).toBe(403); // 権限エラー
     });
 
     it('無効な評価値でのレビュー投稿エラー', async () => {

@@ -8,6 +8,7 @@ import Database from 'better-sqlite3';
 import { migrate } from 'drizzle-kit/api';
 import * as schema from '../../src/db/schema';
 import { sql } from 'drizzle-orm';
+import { hashPassword } from '../helpers/auth';
 
 export type TestDatabaseConnection = BetterSQLite3Database<Record<string, never>> & {
   $client: Database.Database;
@@ -56,8 +57,8 @@ export const setupTestDatabase = async (): Promise<TestDatabaseConnection> => {
  * テスト用シードデータを投入
  */
 export const seedTestData = async (db: TestDatabaseConnection) => {
-  // パスワードは'password'をハッシュ化したもの（bcryptで生成）
-  const passwordHash = '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi';
+  // パスワードをハッシュ化
+  const passwordHash = await hashPassword('password');
 
   // テストユーザー作成
   await db.insert(schema.users).values([

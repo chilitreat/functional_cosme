@@ -9,6 +9,7 @@ import { api } from '../index';
 import { setupTestDatabase, seedTestData, cleanupTestDatabase, TestDatabaseConnection } from '../../../tests/setup/database';
 import { generateAuthToken, getAuthHeaders } from '../../../tests/helpers/auth';
 import { createValidProductData, createInvalidProductData } from '../../../tests/helpers/data';
+import { products } from '../../db/schema';
 
 describe('Products API Integration Tests', () => {
   let testDb: TestDatabaseConnection;
@@ -51,14 +52,14 @@ describe('Products API Integration Tests', () => {
 
     it('商品一覧が空の場合でも正常に処理される', async () => {
       // 全ての商品を削除
-      await testDb.delete(require('../../db/schema').products);
+      await testDb.delete(products);
 
       const response = await app.request('/api/products');
 
       expect(response.status).toBe(200);
-      const products = await response.json();
-      expect(Array.isArray(products)).toBe(true);
-      expect(products.length).toBe(0);
+      const productsResult = await response.json();
+      expect(Array.isArray(productsResult)).toBe(true);
+      expect(productsResult.length).toBe(0);
     });
   });
 
@@ -112,7 +113,7 @@ describe('Products API Integration Tests', () => {
 
     it('有効なJWT認証で商品を正常に作成できる', async () => {
       const productData = createValidProductData();
-      const authHeaders = getAuthHeaders(1); // テストユーザーID: 1
+      const authHeaders = await getAuthHeaders(1); // テストユーザーID: 1
       
       const response = await app.request('/api/products', {
         method: 'POST',
@@ -132,7 +133,7 @@ describe('Products API Integration Tests', () => {
 
     it('無効なデータの場合は400エラーを返す', async () => {
       const invalidProductData = createInvalidProductData();
-      const authHeaders = getAuthHeaders(1);
+      const authHeaders = await getAuthHeaders(1);
       
       const response = await app.request('/api/products', {
         method: 'POST',
@@ -151,7 +152,7 @@ describe('Products API Integration Tests', () => {
         name: 'Test Product',
         // manufacturer, category, ingredients が欠けている
       };
-      const authHeaders = getAuthHeaders(1);
+      const authHeaders = await getAuthHeaders(1);
       
       const response = await app.request('/api/products', {
         method: 'POST',
@@ -181,7 +182,7 @@ describe('Products API Integration Tests', () => {
   describe('エラーハンドリング', () => {
     it('Content-Typeが不正な場合は適切なエラーを返す', async () => {
       const productData = createValidProductData();
-      const authHeaders = getAuthHeaders(1);
+      const authHeaders = await getAuthHeaders(1);
       
       const response = await app.request('/api/products', {
         method: 'POST',
@@ -192,11 +193,11 @@ describe('Products API Integration Tests', () => {
         body: JSON.stringify(productData),
       });
 
-      expect([400, 415]).toContain(response.status); // Bad Request または Unsupported Media Type
+      expect(response.status).toBe(415); // Unsupported Media Type
     });
 
     it('リクエストボディが空の場合は400エラーを返す', async () => {
-      const authHeaders = getAuthHeaders(1);
+      const authHeaders = await getAuthHeaders(1);
       
       const response = await app.request('/api/products', {
         method: 'POST',
@@ -208,7 +209,7 @@ describe('Products API Integration Tests', () => {
     });
 
     it('JSONパースエラーの場合は400エラーを返す', async () => {
-      const authHeaders = getAuthHeaders(1);
+      const authHeaders = await getAuthHeaders(1);
       
       const response = await app.request('/api/products', {
         method: 'POST',

@@ -79,7 +79,7 @@ export const createInvalidProductData = () => ({
   name: '', // 空の名前
   manufacturer: 'Test Manufacturer',
   category: 'invalid_category', // 無効なカテゴリ
-  ingredients: 'Test ingredients',
+  ingredients: ['Test ingredient 1', 'Test ingredient 2'],
 });
 
 /**
@@ -101,9 +101,3 @@ export const createInvalidReviewData = (productId: number, userId: number) => ({
   comment: '', // 空のコメント
 });
 
-/**
- * ランダムなユニークIDを生成
- */
-export const generateUniqueId = (): string => {
-  return randomUUID();
-};
