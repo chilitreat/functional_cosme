@@ -160,6 +160,7 @@ const postReviewRoute = createRoute({
       HttpErrorCodes.BAD_REQUEST,
       HttpErrorCodes.UNAUTHORIZED,
       HttpErrorCodes.FORBIDDEN,
+      HttpErrorCodes.NOT_FOUND,
       HttpErrorCodes.INTERNAL_SERVER_ERROR,
     ]),
   },
@@ -233,6 +234,7 @@ const deleteReviewRoute = createRoute({
       },
     },
     ...errorResponses([
+      HttpErrorCodes.BAD_REQUEST,
       HttpErrorCodes.UNAUTHORIZED,
       HttpErrorCodes.FORBIDDEN,
       HttpErrorCodes.NOT_FOUND,
