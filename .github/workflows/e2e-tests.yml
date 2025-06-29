@@ -1,0 +1,75 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  e2e-tests:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [20, 22] # E2Eテストは最新バージョンのみ
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup test database and environment
+        run: |
+          # E2E用データベースの準備
+          touch e2e-test.db
+          npm run migration:run
+          npm run seed:run
+        env:
+          NODE_ENV: test
+          DATABASE_URL: './e2e-test.db'
+          JWT_SECRET: 'e2e-test-jwt-secret-for-ci'
+
+      - name: Run TypeScript compilation check
+        run: npm run build
+
+      - name: Start application in background (if needed)
+        run: |
+          # アプリケーションがE2Eテスト用にサーバー起動が必要な場合
+          # npm run dev &
+          # sleep 5
+          echo "E2E tests run in process, no server startup needed"
+        env:
+          NODE_ENV: test
+          DATABASE_URL: './e2e-test.db'
+          JWT_SECRET: 'e2e-test-jwt-secret-for-ci'
+
+      - name: Run E2E tests
+        run: npm run test:e2e
+        env:
+          NODE_ENV: test
+          DATABASE_URL: './e2e-test.db'
+          JWT_SECRET: 'e2e-test-jwt-secret-for-ci'
+
+      - name: Upload coverage reports
+        if: matrix.node-version == '22'
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage/lcov.info
+          flags: e2e-tests
+          name: e2e-tests-coverage
+
+      - name: Cleanup
+        if: always()
+        run: |
+          # プロセス停止（必要に応じて）
+          # pkill -f "npm run dev" || true
+          rm -f e2e-test.db

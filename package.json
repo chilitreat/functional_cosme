@@ -5,6 +5,10 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "test": "vitest",
+    "test:unit": "vitest src/domain src/lib --run",
+    "test:integration": "vitest src/api src/repository --run",
+    "test:e2e": "vitest tests/e2e --run",
+    "test:all": "npm run test:unit && npm run test:integration && npm run test:e2e",
     "migration:run": "drizzle-kit migrate --config=./drizzle.config.ts",
     "migration:generate": "drizzle-kit generate --config=./drizzle.config.ts",
     "seed:run": "tsx database/seed.ts"

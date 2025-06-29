@@ -1,5 +1,6 @@
 import { save } from './save';
 import { erase } from './erase';
 import { findByProductId } from './findByProductId';
+import { findById } from './findById';
 
-export { findByProductId, erase, save };
+export { findByProductId, findById, erase, save };

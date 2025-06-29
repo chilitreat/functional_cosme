@@ -20,6 +20,15 @@ export type User = z.infer<typeof UserSchema>;
 type DomainError = HashError;
 
 export type NotResisterdUser = Omit<User, 'userId' | 'createdAt'>;
+export type UnsavedUser = NotResisterdUser;
+
+// Repository Interface
+export interface UserRepositoryInterface {
+  save: any;
+  findAll: any;
+  findByEmail: any;
+  findById: any;
+}
 
 export const UserId = {
   of: (id: number): UserId => UserIdSchema.parse(id),

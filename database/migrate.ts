@@ -1,8 +1,4 @@
-import { migrate } from 'drizzle-orm/bun-sqlite/migrator';
+import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+import { databaseConnection } from '../src/db/db';
 
-import { drizzle } from 'drizzle-orm/bun-sqlite';
-import { Database } from 'bun:sqlite';
-
-const sqlite = new Database('database.sqlite');
-const db = drizzle(sqlite);
-await migrate(db, { migrationsFolder: './drizzle' });
+await migrate(databaseConnection, { migrationsFolder: './migrations' });
