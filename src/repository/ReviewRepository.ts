@@ -51,7 +51,9 @@ const save = depend(
         console.error('Error saving review:', e);
         // SQLite外部キー制約エラーを適切な形に変換
         if (e.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
-          return new Error('Product or User not found') as DatabaseConnectionError;
+          return new Error(
+            'Product or User not found'
+          ) as DatabaseConnectionError;
         }
         return e as DatabaseConnectionError;
       }
@@ -73,7 +75,6 @@ const findByProductId = depend(
         .orderBy(desc(schema.reviews.createdAt))
         .execute()
         .then((rows) => {
-          console.log('Fetched reviews:', rows);
           return rows.map((row) =>
             Review.of({
               reviewId: row.reviewId,
@@ -87,6 +88,39 @@ const findByProductId = depend(
         }),
       (e) => {
         console.error('Error finding reviews by product ID:', e);
+        return e as DatabaseConnectionError;
+      }
+    )
+);
+
+const findById = depend(
+  { db: databaseConnection },
+  (
+    { db },
+    reviewId: ReviewId
+  ): ResultAsync<Review | null, DatabaseConnectionError> =>
+    ResultAsync.fromPromise(
+      db
+        .select()
+        .from(schema.reviews)
+        .where(eq(schema.reviews.reviewId, reviewId))
+        .execute()
+        .then((rows) => {
+          if (rows.length === 0) {
+            return null;
+          }
+          const row = rows[0];
+          return Review.of({
+            reviewId: row.reviewId,
+            productId: row.productId,
+            userId: row.userId,
+            rating: row.rating,
+            comment: row.comment,
+            createdAt: row.createdAt,
+          });
+        }),
+      (e) => {
+        console.error('Error finding review by ID:', e);
         return e as DatabaseConnectionError;
       }
     )
@@ -110,5 +144,6 @@ const erase = depend(
 export const reviewRepository = {
   save,
   findByProductId,
+  findById,
   erase,
 };

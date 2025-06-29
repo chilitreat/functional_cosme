@@ -9,7 +9,7 @@ import {
   notFoundError,
 } from '../common-error';
 import { jwtAuth } from '../jwt-auth';
-import { erase, findByProductId, save } from '../../usecase/review';
+import { erase, findByProductId, findById, save } from '../../usecase/review';
 
 export const reviews = new OpenAPIHono();
 
@@ -77,7 +77,14 @@ const getReviewByProductIdRoute = createRoute({
 
 reviews.openapi(getReviewByProductIdRoute, async (c) => {
   const { productId } = c.req.query();
-  const reviews = await findByProductId(Number(productId));
+  
+  // productIdの検証
+  const numericProductId = Number(productId);
+  if (!productId || isNaN(numericProductId) || numericProductId <= 0) {
+    return badRequestError(c, new Error('Invalid or missing productId parameter'));
+  }
+  
+  const reviews = await findByProductId(numericProductId);
   if (reviews.isErr()) {
     return internalServerError(c, reviews.error);
   }
@@ -241,20 +248,32 @@ reviews.openapi(deleteReviewRoute, async (c) => {
     return unauthorizedError(c, new Error('User ID not found in JWT'));
   }
 
-  // Fetch the review to check ownership
-  const reviews = await findByProductId(Number(id));
-  if (reviews.isErr() || reviews.value.length === 0) {
-    return notFoundError(c, new Error('Review not found'));
-  }
+  // レビューの存在確認と所有者チェック
+  try {
+    const reviewResult = await findById(id);
+    if (reviewResult.isErr()) {
+      return internalServerError(c, reviewResult.error);
+    }
+    
+    const review = reviewResult.value;
+    if (!review) {
+      return notFoundError(c, new Error('Review not found'));
+    }
+    
+    if (review.userId !== userId) {
+      return forbiddenError(c, new Error('You are not authorized to delete this review'));
+    }
 
-  const review = reviews.value.find((r) => r.reviewId === id);
-  if (!review || review.userId !== userId) {
-    return forbiddenError(c, new Error('You are not authorized to delete this review'));
+    const result = await erase(id);
+    if (result.isErr()) {
+      return internalServerError(c, result.error);
+    }
+    return c.json({ message: 'Review deleted successfully' });
+  } catch (error) {
+    // UUIDバリデーションエラーなどはBad Requestとして処理
+    if (error instanceof Error && error.message.includes('Invalid review ID format')) {
+      return badRequestError(c, error);
+    }
+    return internalServerError(c, error as Error);
   }
-
-  const result = await erase(id);
-  if (result.isErr()) {
-    return internalServerError(c, result.error);
-  }
-  return c.json({ message: 'Review deleted successfully' });
 });

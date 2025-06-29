@@ -12,26 +12,69 @@ import {
   cleanupTestDatabase,
   TestDatabaseConnection,
 } from '../setup/database';
-import {
-  createValidUserData,
-  createValidProductData,
-  createValidReviewData,
-} from '../helpers/data';
+import { hashPassword } from '../helpers/auth';
 
-describe.skip('Review Flow E2E Tests', () => {
-  let testDb: TestDatabaseConnection;
+describe('Review Flow E2E Tests', async () => {
+  // アプリケーションで使用するdatabaseConnectionを初期化
+  // テスト用シードデータを直接挿入
+  const { databaseConnection } = await import('../../src/db/db');
+  const schema = await import('../../src/db/schema');
+
   let app: OpenAPIHono;
 
   beforeEach(async () => {
-    testDb = await setupTestDatabase();
-    await seedTestData(testDb);
+    // テストデータをシード
+    const passwordHash = await hashPassword('password');
+    await databaseConnection.insert(schema.users).values([
+      {
+        userId: 1,
+        name: 'Test User 1',
+        email: `test1-${Date.now()}@example.com`,
+        passwordHash: passwordHash,
+      },
+      {
+        userId: 2,
+        name: 'Test User 2',
+        email: `test2-${Date.now()}@example.com`,
+        passwordHash: passwordHash,
+      },
+    ]);
+
+    await databaseConnection.insert(schema.products).values([
+      {
+        productId: 1,
+        name: 'Test Product 1',
+        manufacturer: 'Test Manufacturer 1',
+        category: 'skin_care',
+        ingredients: 'Test Ingredient 1, Test Ingredient 2',
+      },
+      {
+        productId: 2,
+        name: 'Test Product 2',
+        manufacturer: 'Test Manufacturer 2',
+        category: 'makeup',
+        ingredients: 'Test Ingredient 3, Test Ingredient 4',
+      },
+    ]);
+
+    await databaseConnection.insert(schema.reviews).values([
+      {
+        reviewId: '485bcafd-240e-e447-180d-f26784665081',
+        productId: 1,
+        userId: 1,
+        rating: 5,
+        comment: 'Great product for testing!',
+      },
+    ]);
 
     app = new OpenAPIHono();
     app.route('/', api);
   });
 
-  afterEach(() => {
-    cleanupTestDatabase(testDb);
+  afterEach(async () => {
+    await databaseConnection.delete(schema.reviews);
+    await databaseConnection.delete(schema.products);
+    await databaseConnection.delete(schema.users);
   });
 
   describe('完全なレビュー投稿フロー', () => {
@@ -59,7 +102,11 @@ describe.skip('Review Flow E2E Tests', () => {
       expect(productDetail).toHaveProperty('manufacturer');
 
       // 3. 新しいユーザーを登録
-      const userData = createValidUserData();
+      const userData = {
+        name: 'Test User',
+        email: `test-${Date.now()}@example.com`, // ユニーク性を保証
+        password: 'testpassword123',
+      };
       const registerResponse = await app.request('/api/users/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -134,8 +181,11 @@ describe.skip('Review Flow E2E Tests', () => {
       const productId = 1; // シードデータの商品ID
 
       // ユーザー1のフロー
-      const user1Data = createValidUserData();
-      user1Data.email = 'user1@example.com';
+      const user1Data = {
+        name: 'User 1',
+        email: `user1-${Date.now()}@example.com`, // ユニーク性を保証
+        password: 'user1password123',
+      };
 
       await app.request('/api/users/register', {
         method: 'POST',
@@ -168,8 +218,11 @@ describe.skip('Review Flow E2E Tests', () => {
       });
 
       // ユーザー2のフロー
-      const user2Data = createValidUserData();
-      user2Data.email = 'user2@example.com';
+      const user2Data = {
+        name: 'User 2',
+        email: `user2-${Date.now()}@example.com`, // ユニーク性を保証
+        password: 'user2password123',
+      };
 
       await app.request('/api/users/register', {
         method: 'POST',
@@ -225,7 +278,11 @@ describe.skip('Review Flow E2E Tests', () => {
 
     it('レビュー投稿から削除まで完全フロー', async () => {
       // ユーザー登録・ログイン
-      const userData = createValidUserData();
+      const userData = {
+        name: 'User 1',
+        email: `user1-${Date.now()}@example.com`, // ユニーク性を保証
+        password: 'user1password123',
+      };
       await app.request('/api/users/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -287,9 +344,9 @@ describe.skip('Review Flow E2E Tests', () => {
       const reviewsAfterDelete = await app.request(
         `/api/reviews?productId=${reviewData.productId}`
       );
-      const reviewsAfterDeleteJson = await reviewsAfterDelete.json();
-      const deletedReview = reviewsAfterDeleteJson.find(
-        (r: { id: string }) => r.id === reviewId
+      const reviewsAfterDeleteData = await reviewsAfterDelete.json();
+      const deletedReview = reviewsAfterDeleteData.reviews.find(
+        (r: { reviewId: string }) => r.reviewId === reviewId
       );
       expect(deletedReview).toBeUndefined();
     });
@@ -298,7 +355,11 @@ describe.skip('Review Flow E2E Tests', () => {
   describe('エラーケースのE2Eテスト', () => {
     it('存在しない商品へのレビュー投稿エラー', async () => {
       // ユーザー登録・ログイン
-      const userData = createValidUserData();
+      const userData = {
+        name: 'User 1',
+        email: `user1-${Date.now()}@example.com`, // ユニーク性を保証
+        password: 'user1password123',
+      };
       await app.request('/api/users/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -337,8 +398,11 @@ describe.skip('Review Flow E2E Tests', () => {
 
     it('他人のレビュー削除試行はエラー', async () => {
       // ユーザー1がレビューを投稿
-      const user1Data = createValidUserData();
-      user1Data.email = 'owner@example.com';
+      const user1Data = {
+        name: 'User 1',
+        email: `owner-${Date.now()}@example.com`, // ユニーク性を保証
+        password: 'user1password123',
+      };
 
       await app.request('/api/users/register', {
         method: 'POST',
@@ -371,11 +435,14 @@ describe.skip('Review Flow E2E Tests', () => {
       });
 
       const { review } = await reviewResponse.json();
-      const reviewId = review.id;
+      const reviewId = review.reviewId;
 
       // ユーザー2が登録・ログイン
-      const user2Data = createValidUserData();
-      user2Data.email = 'attacker@example.com';
+      const user2Data = {
+        name: 'User 2',
+        email: `attacker-${Date.now()}@example.com`, // ユニーク性を保証
+        password: 'user2password123',
+      };
 
       await app.request('/api/users/register', {
         method: 'POST',
@@ -407,7 +474,11 @@ describe.skip('Review Flow E2E Tests', () => {
 
     it('無効な評価値でのレビュー投稿エラー', async () => {
       // ユーザー登録・ログイン
-      const userData = createValidUserData();
+      const userData = {
+        name: 'User 1',
+        email: `user1-${Date.now()}@example.com`, // ユニーク性を保証
+        password: 'user1password123',
+      };
       await app.request('/api/users/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
