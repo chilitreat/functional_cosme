@@ -179,10 +179,11 @@ reviews.openapi(postReviewRoute, async (c) => {
     comment: comment ?? '',
   });
   if (result.isErr()) {
-    return c.json(
-      { message: 'Failed to save review', error: result.error },
-      HttpErrorCodes.INTERNAL_SERVER_ERROR
-    );
+    // 外部キー制約エラー（存在しない商品/ユーザー）は404として処理
+    if (result.error.message.includes('Product or User not found')) {
+      return notFoundError(c, result.error);
+    }
+    return internalServerError(c, result.error);
   }
   return c.json({
     message: 'Review registered',

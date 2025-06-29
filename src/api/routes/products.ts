@@ -99,6 +99,7 @@ const getProductByIdRoute = createRoute({
       },
     },
     ...errorResponses([
+      HttpErrorCodes.BAD_REQUEST,
       HttpErrorCodes.NOT_FOUND,
       HttpErrorCodes.INTERNAL_SERVER_ERROR,
     ]),
@@ -107,7 +108,14 @@ const getProductByIdRoute = createRoute({
 
 products.openapi(getProductByIdRoute, async (c) => {
   const { id } = c.req.param();
-  const result = await findById(ProductId.of(Number(id)));
+  
+  // ID形式の検証
+  const numericId = Number(id);
+  if (isNaN(numericId) || numericId <= 0) {
+    return badRequestError(c, new Error('Invalid product ID format'));
+  }
+  
+  const result = await findById(ProductId.of(numericId));
   if (result.isErr()) {
     if (result.error instanceof NotFound) {
       return notFoundError(c, result.error);
@@ -205,6 +213,10 @@ products.openapi(postProductRoute, async (c) => {
 
   const result = await save(data);
   if (result.isErr()) {
+    // ドメインエラー（無効なカテゴリなど）は400エラーとして処理
+    if (result.error.message.includes('Undefined product category')) {
+      return badRequestError(c, result.error);
+    }
     return internalServerError(c, result.error);
   }
 
