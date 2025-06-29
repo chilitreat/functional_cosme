@@ -6,36 +6,40 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { api } from '../index';
-import {
-  setupTestDatabase,
-  seedTestData,
-  cleanupTestDatabase,
-  TestDatabaseConnection,
-} from '../../../tests/setup/database';
+
 import { getAuthHeaders } from '../../../tests/helpers/auth';
 import {
   createValidProductData,
   createInvalidProductData,
 } from '../../../tests/helpers/data';
-import { products, reviews } from '../../db/schema';
 
-describe.skip('Products API Integration Tests', () => {
-  let testDb: TestDatabaseConnection;
+describe('Products API Integration Tests', async () => {
   let app: OpenAPIHono;
+  // アプリケーションで使用するdatabaseConnectionを初期化
+  // テスト用シードデータを直接挿入
+  const { databaseConnection } = await import('../../db/db');
+  const schema = await import('../../db/schema');
 
   beforeEach(async () => {
-    // テスト用データベースを初期化
-    testDb = await setupTestDatabase();
-    await seedTestData(testDb);
+    await databaseConnection.insert(schema.products).values([
+      {
+        name: 'Test Product',
+        manufacturer: 'Test Manufacturer',
+        category: 'skin_care',
+        ingredients: 'Test Ingredient 1, Test Ingredient 2',
+        createdAt: new Date().toISOString(),
+      },
+    ]);
 
     // APIアプリケーションのインスタンスを作成
     app = new OpenAPIHono();
     app.route('/', api);
   });
 
-  afterEach(() => {
-    // クリーンアップ
-    cleanupTestDatabase(testDb);
+  afterEach(async () => {
+    await databaseConnection.delete(schema.reviews);
+    await databaseConnection.delete(schema.products);
+    await databaseConnection.delete(schema.users);
   });
 
   describe('GET /api/products', () => {
@@ -60,8 +64,8 @@ describe.skip('Products API Integration Tests', () => {
 
     it('商品一覧が空の場合でも正常に処理される', async () => {
       // 外部キー制約のため、先にレビューを削除してから商品を削除
-      await testDb.delete(reviews);
-      await testDb.delete(products);
+      await databaseConnection.delete(schema.reviews);
+      await databaseConnection.delete(schema.products);
 
       const response = await app.request('/api/products');
 
@@ -74,7 +78,7 @@ describe.skip('Products API Integration Tests', () => {
 
   describe('GET /api/products/:id', () => {
     it('指定されたIDの商品詳細を取得できる', async () => {
-      const productId = 1;
+      const productId = 3;
       const response = await app.request(`/api/products/${productId}`);
 
       expect(response.status).toBe(200);
