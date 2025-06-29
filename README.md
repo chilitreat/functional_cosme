@@ -1,4 +1,10 @@
-関数型ドメインモデリングを読みながら、サンプルアプリを作成します。
+# 関数型化粧品クチコミAPI
+
+[![Unit Tests](https://github.com/[ユーザー名]/functional-cosme/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/[ユーザー名]/functional-cosme/actions/workflows/unit-tests.yml)
+[![Integration Tests](https://github.com/[ユーザー名]/functional-cosme/actions/workflows/integration-tests.yml/badge.svg)](https://github.com/[ユーザー名]/functional-cosme/actions/workflows/integration-tests.yml)
+[![E2E Tests](https://github.com/[ユーザー名]/functional-cosme/actions/workflows/e2e-tests.yml/badge.svg)](https://github.com/[ユーザー名]/functional-cosme/actions/workflows/e2e-tests.yml)
+
+関数型プログラミングとクリーンアーキテクチャを採用した化粧品クチコミAPIです。
 
 ## Example
 
@@ -13,6 +19,35 @@ bun run dev
 ```
 
 open http://localhost:3000
+
+## テスト実行
+
+### 全テスト実行
+```sh
+npm run test:all
+```
+
+### テストタイプ別実行
+```sh
+# 単体テスト（ドメインロジック、ユーティリティ）
+npm run test:unit
+
+# 結合テスト（API、リポジトリ）
+npm run test:integration
+
+# E2Eテスト（エンドツーエンド）
+npm run test:e2e
+
+# カバレッジ付きテスト実行
+npm run test -- --coverage
+```
+
+### CI/CD
+GitHub ActionsでCIパイプラインが構築されており、以下のステップで実行されます：
+1. **Lint & Build** - TypeScript コンパイルチェック
+2. **Unit Tests** - ドメインロジックの単体テスト
+3. **Integration Tests** - API と リポジトリの結合テスト
+4. **E2E Tests** - 完全なユーザーフローのテスト
 
 ## 技術スタック
 
