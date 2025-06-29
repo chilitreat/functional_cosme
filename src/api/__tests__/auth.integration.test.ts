@@ -3,34 +3,83 @@
  * ユーザー登録からログイン、保護されたリソースアクセスまでの一連のフロー
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { api } from '../index';
-import {
-  setupTestDatabase,
-  seedTestData,
-  cleanupTestDatabase,
-  TestDatabaseConnection,
-} from '../../../tests/setup/database';
 import {
   createValidUserData,
   createValidProductData,
 } from '../../../tests/helpers/data';
 
-describe.skip('Authentication Flow Integration Tests', () => {
-  let testDb: TestDatabaseConnection;
+describe('Authentication Flow Integration Tests', () => {
   let app: OpenAPIHono;
 
   beforeEach(async () => {
-    testDb = await setupTestDatabase();
-    await seedTestData(testDb);
+    // NODE_ENVを確実にtestに設定（モジュール初期化前に）
+    process.env.NODE_ENV = 'test';
+
+    // アプリケーションで使用するdatabaseConnectionを初期化
+    // テスト用シードデータを直接挿入
+    const { databaseConnection } = await import('../../db/db');
+    const schema = await import('../../db/schema');
+    const { hashPassword } = await import('../../../tests/helpers/auth');
+
+    // テストデータをシード
+    const passwordHash = await hashPassword('password');
+    await databaseConnection.insert(schema.users).values([
+      {
+        userId: 1,
+        name: 'Test User 1',
+        email: 'test1@example.com',
+        passwordHash: passwordHash,
+      },
+      {
+        userId: 2,
+        name: 'Test User 2',
+        email: 'test2@example.com',
+        passwordHash: passwordHash,
+      },
+    ]);
+
+    await databaseConnection.insert(schema.products).values([
+      {
+        productId: 1,
+        name: 'Test Product 1',
+        manufacturer: 'Test Manufacturer 1',
+        category: 'skin_care',
+        ingredients: 'Test Ingredient 1, Test Ingredient 2',
+      },
+      {
+        productId: 2,
+        name: 'Test Product 2',
+        manufacturer: 'Test Manufacturer 2',
+        category: 'makeup',
+        ingredients: 'Test Ingredient 3, Test Ingredient 4',
+      },
+    ]);
+
+    await databaseConnection.insert(schema.reviews).values([
+      {
+        reviewId: 'test-review-1',
+        productId: 1,
+        userId: 1,
+        rating: 5,
+        comment: 'Great product for testing!',
+      },
+    ]);
 
     app = new OpenAPIHono();
     app.route('/', api);
   });
 
-  afterEach(() => {
-    cleanupTestDatabase(testDb);
+  afterEach(async () => {
+    // 実際のデータベース接続をクリーンアップ
+    const { databaseConnection } = await import('../../db/db');
+    const schema = await import('../../db/schema');
+
+    await databaseConnection.delete(schema.reviews);
+    await databaseConnection.delete(schema.products);
+    await databaseConnection.delete(schema.users);
   });
 
   describe('完全な認証フロー', () => {
@@ -219,7 +268,9 @@ describe.skip('Authentication Flow Integration Tests', () => {
 
       expect(response.status).toBe(400);
       const result = await response.json();
-      expect(result).toHaveProperty('message');
+      // Honoの自動バリデーションによるレスポンス形式をチェック
+      expect(result.success).toBe(false);
+      expect(result.error).toBeDefined();
     });
 
     it('短すぎるパスワードでの登録は拒否される', async () => {
@@ -237,7 +288,9 @@ describe.skip('Authentication Flow Integration Tests', () => {
 
       expect(response.status).toBe(400);
       const result = await response.json();
-      expect(result).toHaveProperty('message');
+      // Honoの自動バリデーションによるレスポンス形式をチェック
+      expect(result.success).toBe(false);
+      expect(result.error).toBeDefined();
     });
 
     it('必須フィールドが欠けている場合は登録拒否', async () => {
@@ -254,7 +307,9 @@ describe.skip('Authentication Flow Integration Tests', () => {
 
       expect(response.status).toBe(400);
       const result = await response.json();
-      expect(result).toHaveProperty('message');
+      // Honoの自動バリデーションによるレスポンス形式をチェック
+      expect(result.success).toBe(false);
+      expect(result.error).toBeDefined();
     });
   });
 

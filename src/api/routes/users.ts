@@ -7,11 +7,7 @@ import {
   unauthorizedError,
 } from '../common-error';
 import { jwtAuth, jwtSign } from '../jwt-auth';
-import {
-  registerUser,
-  getAllUsers,
-  getUserByEmail,
-} from '../../usecase/user';
+import { registerUser, getAllUsers, getUserByEmail } from '../../usecase/user';
 import { verifyPassword } from '../../lib/utils';
 
 export const users = new OpenAPIHono();
@@ -51,11 +47,11 @@ const getUsersRoute = createRoute({
 
 users.openapi(getUsersRoute, async (c) => {
   const usersResult = await getAllUsers();
-  
+
   if (usersResult.isErr()) {
     return internalServerError(c, usersResult.error);
   }
-  
+
   return c.json({
     users: usersResult.value.map((user) => ({
       id: user.userId,
@@ -118,14 +114,17 @@ const postRegisterRoute = createRoute({
 });
 
 users.openapi(postRegisterRoute, async (c) => {
-  const { success, error, data } = UserSchema.safeParse(await c.req.json());
-  if (!success || !data) {
-    const errorMessage = error?.issues?.map(issue => issue.message).join(', ') || 'Invalid input';
+  const parseResult = UserSchema.safeParse(await c.req.json());
+  if (!parseResult.success) {
+    const errorMessage = parseResult.error.issues
+      .map((issue) => issue.message)
+      .join(', ');
     return badRequestError(c, new Error(errorMessage));
   }
-  
+  const data = parseResult.data;
+
   const { name, email, password } = data;
-  
+
   const userResult = await registerUser({ name, email, password });
 
   if (userResult.isErr()) {
@@ -194,19 +193,22 @@ const postLoginRoute = createRoute({
 
 users.openapi(postLoginRoute, async (c) => {
   const { email, password } = c.req.valid('json');
-  
+
   const userResult = await getUserByEmail(email);
-  
+
   if (userResult.isErr()) {
     return internalServerError(c, userResult.error);
   }
-  
+
   if (!userResult.value) {
     return unauthorizedError(c, new Error('Invalid email or password'));
   }
 
   const user = userResult.value;
-  const passwordVerification = await verifyPassword(password, user.passwordHash);
+  const passwordVerification = await verifyPassword(
+    password,
+    user.passwordHash
+  );
 
   if (passwordVerification.isErr() || !passwordVerification.value) {
     return unauthorizedError(c, new Error('Invalid email or password'));

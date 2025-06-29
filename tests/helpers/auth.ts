@@ -7,7 +7,7 @@ import { sign } from 'hono/jwt';
 import { User } from '../../src/domain/user';
 import bcrypt from 'bcrypt';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'secret';
+const JWT_SECRET = process.env.JWT_SECRET || 'test_secret';
 
 /**
  * テスト用ユーザーデータを作成
@@ -25,7 +25,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'secret';
 export const generateAuthToken = async (userId: number): Promise<string> => {
   const payload = {
     user: { id: userId },
-    exp: Math.floor(Date.now() / 1000) + 60 * 60, // 1時間
+    exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24, // 24時間
   };
   return await sign(payload, JWT_SECRET);
 };
